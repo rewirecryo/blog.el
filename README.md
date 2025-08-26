@@ -1,0 +1,1 @@
+This is a package for publishing a blog using Org Mode.
