@@ -64,4 +64,53 @@ Posts will be published into the directory specified by PUBLISH-DIR."
 				  (blog/publish-at-point publish-dir)
 				(error (message "Skipped existing file: '%s'." (nth 2 e))) nil nil))))
 
+(defun blog/upload-post-at-point (conn root-dir file-path)
+  "Upload the post at (point) to a SQLite database, located at the path specified in CONN.
+
+ROOT-DIR is the directory prepended to FILE-PATH. It exists so that you
+can put a relative path in the database while still accessing the file
+on the current filesystem so that its hash can be calculated.
+
+FILE-PATH is where the post has been exported, relative to the ROOT-DIR.
+It's also what will be stored in the database, verbatim.
+"
+  (interactive)
+  (let ((computed-hash nil) (file-size nil) (full-path (concat root-dir "/" file-path)))
+    (with-temp-buffer (insert-file-contents-literally full-path 'raw-text)
+		      (setq computed-hash (secure-hash 'sha512 (current-buffer)))
+		      (setq file-size (buffer-size (current-buffer))))
+    (sqlite-pragma conn "foreign_keys = ON;")
+    (unwind-protect
+	(progn
+	  (sqlite-transaction conn)
+	  (sqlite-execute conn "INSERT INTO files (path, hash, size) VALUES (?, ?, ?) ON CONFLICT DO UPDATE SET path=?, hash=?, size=?;" (list file-path computed-hash file-size file-path computed-hash file-size))
+	  (sqlite-execute conn "INSERT OR REPLACE INTO posts (title, subtitle, author, date_published, date_modified, stub, file) VALUES (?, ?, (SELECT id FROM authors WHERE name_id=?), ?, ?, ?, (SELECT id FROM files WHERE path=?));"
+			  (blog/query-info-at-point file-path))
+	  (sqlite-commit conn))
+      (sqlite-rollback conn))))
+
+(defun blog/query-info-at-point
+    (file-path)
+  "Return all information about the post at (point) that you'd need to put
+that post into the database.
+
+FILE-PATH is the desired value of the 'file' column.
+"
+  (interactive)
+  (list (nth 4 (org-heading-components))
+    (org-entry-get (point) "subtitle" nil)
+    (org-entry-get (point) "author" nil)
+    (string-to-number
+     (org-timestamp-format (org-timestamp-from-string
+			    (org-entry-get (point) "date_published"))
+			   "%s"))
+    (if (org-entry-get (point) "date_modified")
+	(string-to-number
+	 (org-timestamp-format (org-timestamp-from-string
+				(org-entry-get (point) "date_modified"))
+			       "%s")))
+    (blog/get-stub-at-point)
+    file-path
+    ))
+
 (provide 'blog)
