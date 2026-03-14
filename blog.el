@@ -10,16 +10,20 @@
 (setq blog/max-title-length 80)
 (setq blog/max-stub-length 32)
 
-(defun blog/create-database (filename)
-  "Create a SQLite database that can serve as a Zero database, at FILENAME."
-  (let ((conn (sqlite-open filename)))
-    (sqlite-execute conn "CREATE TABLE IF NOT EXISTS screen_sizes (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, CHECK(LENGTH(name) <= 32));")
-    (sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY, name_id TEXT NOT NULL UNIQUE, first_name TEXT NOT NULL, last_name TEXT NOT NULL, CHECK(LENGTH(name_id) <= %d), CHECK(LENGTH(first_name) <= %d), CHECK(LENGTH(last_name) <= %d), UNIQUE(first_name,last_name));" blog/max-nominal-id-length blog/max-first-name-length blog/max-last-name-length))
-    (sqlite-execute conn "CREATE TABLE IF NOT EXISTS avatar_sets (id INTEGER PRIMARY KEY, author INTEGER NOT NULL, taken_time INTEGER NOT NULL, UNIQUE(author, taken_time), FOREIGN KEY(author) REFERENCES authors(id));")
-    (sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS avatars (file_path TEXT NOT NULL, avatar_set INTEGER NOT NULL, screen_size INTEGER NOT NULL, CHECK(LENGTH(file_path) <= %d), UNIQUE(avatar_set, screen_size), FOREIGN KEY(avatar_set) REFERENCES avatar_sets(id), FOREIGN KEY(screen_size) REFERENCES screen_sizes(id));" blog/max-file-path-length))
-    (sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, hash TEXT NOT NULL, size INTEGER NOT NULL, CHECK(LENGTH(path) <= %d), CHECK(LENGTH(hash) == %d), CHECK(size > 0), CHECK(path NOT LIKE '%%..%%'), CHECK(path NOT LIKE '%%*%%'));" blog/max-file-path-length blog/hash-length))
-    (sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY, hash TEXT NOT NULL, title TEXT NOT NULL UNIQUE, subtitle TEXT NOT NULL, author INTEGER NOT NULL, date_published INTEGER NOT NULL, date_modified INTEGER, stub TEXT NOT NULL UNIQUE, file INTEGER NOT NULL UNIQUE, CHECK(LENGTH(hash) == %d) CHECK(LENGTH(subtitle) <= %d), CHECK(LENGTH(title) <= %d), FOREIGN KEY(author) REFERENCES authors(id), CHECK(date_published >= 0), CHECK(IIF(date_modified == NULL, TRUE, date_modified > date_published)), CHECK(LENGTH(stub) <= %d), FOREIGN KEY(file) REFERENCES files(id));" blog/hash-length blog/max-subtitle-length blog/max-title-length blog/max-stub-length))
-    (sqlite-close conn)))
+(defun blog/create-database (filename &optional overwrite)
+  "Create a SQLite database that can serve as a Zero database, at FILENAME.
+
+If OVERWRITE is nil, FILENAME will be overwritten."
+  (if (and (file-exists-p filename) (not overwrite))
+      (error "File `%s' already exists" filename)
+      (let ((conn (sqlite-open filename)))
+	(sqlite-execute conn "CREATE TABLE IF NOT EXISTS screen_sizes (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, CHECK(LENGTH(name) <= 32));")
+	(sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY, name_id TEXT NOT NULL UNIQUE, first_name TEXT NOT NULL, last_name TEXT NOT NULL, CHECK(LENGTH(name_id) <= %d), CHECK(LENGTH(first_name) <= %d), CHECK(LENGTH(last_name) <= %d), UNIQUE(first_name,last_name));" blog/max-nominal-id-length blog/max-first-name-length blog/max-last-name-length))
+	(sqlite-execute conn "CREATE TABLE IF NOT EXISTS avatar_sets (id INTEGER PRIMARY KEY, author INTEGER NOT NULL, taken_time INTEGER NOT NULL, UNIQUE(author, taken_time), FOREIGN KEY(author) REFERENCES authors(id));")
+	(sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS avatars (file_path TEXT NOT NULL, avatar_set INTEGER NOT NULL, screen_size INTEGER NOT NULL, CHECK(LENGTH(file_path) <= %d), UNIQUE(avatar_set, screen_size), FOREIGN KEY(avatar_set) REFERENCES avatar_sets(id), FOREIGN KEY(screen_size) REFERENCES screen_sizes(id));" blog/max-file-path-length))
+	(sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, hash TEXT NOT NULL, size INTEGER NOT NULL, CHECK(LENGTH(path) <= %d), CHECK(LENGTH(hash) == %d), CHECK(size > 0), CHECK(path NOT LIKE '%%..%%'), CHECK(path NOT LIKE '%%*%%'));" blog/max-file-path-length blog/hash-length))
+	(sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY, hash TEXT NOT NULL, title TEXT NOT NULL UNIQUE, subtitle TEXT NOT NULL, author INTEGER NOT NULL, date_published INTEGER NOT NULL, date_modified INTEGER, stub TEXT NOT NULL UNIQUE, file INTEGER NOT NULL UNIQUE, CHECK(LENGTH(hash) == %d) CHECK(LENGTH(subtitle) <= %d), CHECK(LENGTH(title) <= %d), FOREIGN KEY(author) REFERENCES authors(id), CHECK(date_published >= 0), CHECK(IIF(date_modified == NULL, TRUE, date_modified > date_published)), CHECK(LENGTH(stub) <= %d), FOREIGN KEY(file) REFERENCES files(id));" blog/hash-length blog/max-subtitle-length blog/max-title-length blog/max-stub-length))
+	(sqlite-close conn))))
 
 (defun blog/is-post-at-point
     ()
