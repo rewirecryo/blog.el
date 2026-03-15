@@ -9,7 +9,7 @@
 
 (defun blog/initialize-database (conn)
   "Turn database CONN, into a database that can serve as a Zero database."
-      (condition-case nil
+      (condition-case caught-err
 	  (progn
 	    (sqlite-transaction conn)
 	    (sqlite-execute conn "CREATE TABLE IF NOT EXISTS screen_sizes (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, CHECK(LENGTH(name) <= 32));")
@@ -19,9 +19,10 @@
 	    (sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, hash TEXT NOT NULL, size INTEGER NOT NULL, CHECK(LENGTH(path) <= %d), CHECK(LENGTH(hash) == %d), CHECK(size > 0), CHECK(path NOT LIKE '%%..%%'), CHECK(path NOT LIKE '%%*%%'));" blog/max-file-path-length blog/hash-length))
 	    (sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY, hash TEXT NOT NULL, title TEXT NOT NULL UNIQUE, subtitle TEXT NOT NULL, author INTEGER NOT NULL, date_published INTEGER NOT NULL, date_modified INTEGER, stub TEXT NOT NULL UNIQUE, file INTEGER NOT NULL UNIQUE, CHECK(LENGTH(hash) == %d) CHECK(LENGTH(subtitle) <= %d), CHECK(LENGTH(title) <= %d), FOREIGN KEY(author) REFERENCES authors(id), CHECK(date_published >= 0), CHECK(IIF(date_modified == NULL, TRUE, date_modified > date_published)), CHECK(LENGTH(stub) <= %d), FOREIGN KEY(file) REFERENCES files(id));" blog/hash-length blog/max-subtitle-length blog/max-title-length blog/max-stub-length))
 	    (sqlite-execute conn (format "CREATE TABLE authors_file_hash_table (id INTEGER PRIMARY KEY, hash TEXT NOT NULL, CHECK(id = 1), CHECK(LENGTH(hash) = %d))" blog/hash-length))
-	    (sqlite-commit conn))
-	((error (sqlite-rollback conn))))
-      t)
+	    (sqlite-commit conn)
+	    t)
+	((error) (sqlite-rollback conn)
+	 (signal (car caught-err) (cdr caught-err)))))
 
 (defun blog/create-database (filename &optional overwrite)
   "Create a SQLite database that can serve as a Zero database, at FILENAME.
