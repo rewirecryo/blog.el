@@ -32,6 +32,6 @@ If OVERWRITE is nil, FILENAME will be overwritten."
     (let ((db (sqlite-open filename)))
       (unwind-protect
 	  (blog/initialize-database db)
-	(sqlite-close conn)))))
+	(sqlite-close db)))))
 
 (provide 'blog-database)
