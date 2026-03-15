@@ -57,4 +57,25 @@ for each author read from the file."
 						     :nominal-id nominal-id))))
 		 parsed-json))))
 
+(defun blog/push-authors-to-database (db authors &optional non-atomic)
+  "Push list of author objects, AUTHORS, to the database DB.
+
+If NON-ATOMIC is non-nil, the SQL statements will be executed without
+creating a transaction or rolling back failed statements."
+  (condition-case caught-err
+      (progn (if (not non-atomic) (sqlite-transaction db))
+	     (seq-map (lambda (current-author)
+			(sqlite-execute db
+					"INSERT INTO authors (name_id, first_name, last_name) VALUES (?, ?, ?) ON CONFLICT DO UPDATE SET name_id = ?, first_name = ?, last_name = ?;"
+					(list (blog/author-nominal-id current-author)
+					      (blog/author-first-name current-author)
+					      (blog/author-last-name current-author)
+					      (blog/author-nominal-id current-author)
+					      (blog/author-first-name current-author)
+					      (blog/author-last-name current-author))))
+		      authors)
+	     (if (not non-atomic) sqlite-commit db))
+    ((error) ((if (not non-atmomic (sqlite-rollback db)))
+	      (signal (car caught-err) (cdr caught-err))))))
+
 (provide 'blog-author)
