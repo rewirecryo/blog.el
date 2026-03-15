@@ -1,4 +1,5 @@
 (require 'blog-base)
+(require 'eieio)
 
 (defclass blog/author ()
   ((nominal-id :accessor blog/author-nominal-id
