@@ -1,5 +1,13 @@
 (require 'blog-base)
 
+(defclass blog/author ()
+  ((nominal-id :accessor blog/author-nominal-id
+	       :initarg :nominal-id)
+   (first-name :accessor blog/author-first-name
+	       :initarg :first-name)
+   (last-name :accessor blog/author-last-name
+	      :initarg :last-name)))
+
 (defun blog/calculate-authors-file-hash (authors-file)
   "Calculate the hash of the authors file."
   (with-temp-buffer
