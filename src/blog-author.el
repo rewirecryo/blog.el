@@ -47,6 +47,8 @@ for each author read from the file."
       (insert-file-contents authors-file-path)
       (let ((parsed-json (json-parse-buffer))
 	    (new-author nil))
+	(if (not (vectorp parsed-json))
+	    (error "Root element in author file `%s' is not an array" authors-file-path))
 	(seq-map (lambda (j-current-author)
 		   (let ((first-name (gethash "first_name" j-current-author))
 			 (last-name (gethash "last_name" j-current-author))
