@@ -39,4 +39,21 @@ It's considered out of date in the following cases:
       (if (not (string-equal stored-hash calculated-hash))
 	  calculated-hash)))) ;; Return the calculated hash if it's different from that in the database
 
+(defun blog/load-authors-from-file (authors-file-path)
+    "Parse authors file AUTHORS-FILE-PATH and return a list of author objects
+for each author read from the file."
+    (with-temp-buffer
+      (insert-file-contents authors-file-path)
+      (let ((parsed-json (json-parse-buffer))
+	    (new-author nil))
+	(seq-map (lambda (j-current-author)
+		   (let ((first-name (gethash "first_name" j-current-author))
+			 (last-name (gethash "last_name" j-current-author))
+			 (nominal-id (gethash "nominal_id" j-current-author)))
+		     (setq new-author (make-instance blog/author
+						     :first-name first-name
+						     :last-name last-name
+						     :nominal-id nominal-id))))
+		 parsed-json))))
+
 (provide 'blog-author)
