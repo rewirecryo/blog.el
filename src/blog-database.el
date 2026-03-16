@@ -24,8 +24,10 @@
 	((error) (sqlite-rollback conn)
 	 (signal (car caught-err) (cdr caught-err)))))
 
-(defun blog/create-database (filename &optional overwrite)
+(defun blog/create-database (filename &optional return-connection overwrite)
   "Create a SQLite database that can serve as a Zero database, at FILENAME.
+
+If RETURN-CONNECTION is non-nil, a the resulting connection object is returned. Otherwise, the path to the newly-created database.
 
 If OVERWRITE is nil, FILENAME will be overwritten."
   (if (and (file-exists-p filename) (not overwrite))
@@ -33,6 +35,9 @@ If OVERWRITE is nil, FILENAME will be overwritten."
     (let ((db (sqlite-open filename)))
       (unwind-protect
 	  (blog/initialize-database db)
-	(sqlite-close db)))))
+	(if (not return-connection) (sqlite-close db)))
+      (if return-connection
+	  db
+	filename))))
 
 (provide 'blog-database)
