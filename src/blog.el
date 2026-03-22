@@ -1,5 +1,6 @@
 (require 'blog-author)
 (require 'blog-database)
+(require 'blog-git)
 (setq-default blog/post-tag "blog_post")
 (setq-default blog/post-file-extension ".html")
 

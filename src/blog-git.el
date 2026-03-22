@@ -107,3 +107,5 @@ Return an alist of three lists:
 			  ((eq action 'modified) (setq modified-files (append modified-files (list diff-record))))
 			  ((eq action 'deleted) (setq deleted-files (append deleted-files (list diff-record))))))))))
       (list :added added-files :modified modified-files :deleted deleted-files))))
+
+(provide 'blog-git)
