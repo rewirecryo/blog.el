@@ -1,4 +1,9 @@
 #!/usr/bin/emacs --script
+
+(setq min-argc 2)
+(if (< (length argv) min-argc)
+    (signal (error "Not enough arguments.") argv))
+
 (load-file "conf.el")
 (load "blog")
 (if (not (file-exists-p database-path))
