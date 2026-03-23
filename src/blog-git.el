@@ -58,18 +58,18 @@ will expect LINE to NOT begin with ':'."
   ;;     4) hash of new object
   ;;
   ;;     5) action that was done
-  (let* ((split-line-w-paths (split-string line "\0"))               
+  (let* ((split-line-w-paths (split-string line "\0"))
 	 (first-cols (split-string (nth 0 split-line-w-paths) " ")))
 
     ;; Create (and return) a new git diff-report record
     (blog-git-diff-report-record :old (blog-git-object :mode (nth 0 first-cols)
 						       :hash (nth 2 first-cols)
 						       :path (nth 1 split-line-w-paths))  ; :path might be nil; that's okay.
-				 
+
 				 :new (blog-git-object :mode (nth 1 first-cols)
 						       :hash (nth 3 first-cols)
 						       :path (nth 2 split-line-w-paths)) ; :path might be nil; that's okay.
-				 
+
 				 :action (let ((action-char (string-to-char (nth 4 first-cols)))
 					       (action-symbol nil))
 					   (cond ((= action-char ?A) (setq action-symbol 'added))
