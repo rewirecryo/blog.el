@@ -12,16 +12,27 @@
 ;; This connection object will be used to refer to the database from now on
 (setq blog-db (sqlite-open database-path))
 
+
+(defun update-authors ()
+  "Update authors list in the database."
+      (condition-case caught-err
+	  (progn
+	    (sqlite-transaction blog-db)
+	    (blog-push-authors-to-database blog-db (blog-load-authors-from-file authors-file-path) t)
+	    (sqlite-execute blog-db
+			    "INSERT INTO authors_file_hash_table (id, hash) VALUES (1, ?) ON CONFLICT DO UPDATE SET id = 1, hash = ?;"
+			    (make-list 2 (blog-calculate-authors-file-hash authors-file-path)))
+	    (sqlite-commit blog-db))
+	((error) (progn (sqlite-rollback blog-db)
+			(signal (car caught-err) (cdr caught-err))))))
+
+(setq authors-needs-update nil)
+(setq posts-need-update nil)
+
 (unwind-protect
-    (progn (if (blog-stored-authors-needs-update blog-db authors-file-path)
-	       (condition-case caught-err
-		   (progn
-		     (sqlite-transaction blog-db)
-		     (blog-push-authors-to-database blog-db (blog-load-authors-from-file authors-file-path) t)
-		     (sqlite-execute blog-db
-				     "INSERT INTO authors_file_hash_table (id, hash) VALUES (1, ?) ON CONFLICT DO UPDATE SET id = 1, hash = ?;"
-				     (make-list 2 (blog-calculate-authors-file-hash authors-file-path)))
-		     (sqlite-commit blog-db))
-		 ((error) (progn (sqlite-rollback blog-db)
-				 (signal (car caught-err) (cdr caught-err)))))))
-    (sqlite-close blog-db))
+    (progn
+      (setq authors-needs-update (blog-stored-authors-needs-update blog-db authors-file-path))
+      (setq outdated-files (blog-git-generate-diff-report (nth 0 argv) (nth 1 argv)))
+
+	  (update-authors))
+  (sqlite-close blog-db))
