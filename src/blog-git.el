@@ -1,26 +1,26 @@
-(defclass blog/git-object ()
+(defclass blog-git-object ()
   ((mode :initarg :mode
-	 :accessor blog/git-object-mode)
+	 :accessor blog-git-object-mode)
    (hash :initarg :hash
-	 :accessor blog/git-object-hash)
+	 :accessor blog-git-object-hash)
    (path :initarg :path
-	 :accessor blog/git-object-path))
+	 :accessor blog-git-object-path))
    :documentation "Representation of a Git object.")
 
-(defclass blog/git-diff-report-record ()
+(defclass blog-git-diff-report-record ()
   ((old :initarg :old
-	:accessor blog/git-diff-report-record-old
+	:accessor blog-git-diff-report-record-old
 	:documentation "Version of the object in the old tree.")
    (new :initarg :new
-	:accessor blog/git-diff-report-record-new
+	:accessor blog-git-diff-report-record-new
 	:documentation "Version of the object in the new tree.")
    (action :initarg :action
-	   :accessor blog/git-diff-report-record-action
+	   :accessor blog-git-diff-report-record-action
 	   :documentation "What happened to the object between the two trees."))
   :documentation "Stores a single Git object's changes between two trees.")
 
-(defun blog/parse-git-diff-report-line (line &optional ignore-colon)
-  "Given a segment from 'git diff-tree -r', LINE, return a blog/git-diff-report-record.
+(defun blog-parse-git-diff-report-line (line &optional ignore-colon)
+  "Given a segment from 'git diff-tree -r', LINE, return a blog-git-diff-report-record.
 
 Normally, LINE should begin with ':', and the function will throw an
 error if it doesn't. However, if IGNORE-COLON is non-nil, the function
@@ -62,11 +62,11 @@ will expect LINE to NOT begin with ':'."
 	 (first-cols (split-string (nth 0 split-line-w-paths) " ")))
 
     ;; Create (and return) a new git diff-report record
-    (blog/git-diff-report-record :old (blog/git-object :mode (nth 0 first-cols)
+    (blog-git-diff-report-record :old (blog-git-object :mode (nth 0 first-cols)
 						       :hash (nth 2 first-cols)
 						       :path (nth 1 split-line-w-paths))  ; :path might be nil; that's okay.
 				 
-				 :new (blog/git-object :mode (nth 1 first-cols)
+				 :new (blog-git-object :mode (nth 1 first-cols)
 						       :hash (nth 3 first-cols)
 						       :path (nth 2 split-line-w-paths)) ; :path might be nil; that's okay.
 				 
@@ -77,7 +77,7 @@ will expect LINE to NOT begin with ':'."
 						 ((= action-char ?M) (setq action-symbol 'modified)))
 					   action-symbol))))
 
-(defun blog/categorize-files (before-commit after-commit &optional files-to-check)
+(defun blog-categorize-files (before-commit after-commit &optional files-to-check)
   "Call 'git diff-tree -r --no-renames -z' to learn what files in
 FILES-TO-CHECK have changed between commits BEFORE-COMMIT and
 AFTER-COMMIT.
@@ -98,11 +98,11 @@ Return an alist of three lists:
       (if (buffer-string)
 	  (progn
 	    (dolist (diff-line (split-string (buffer-string) "\0:"))
-	      (let* ((diff-record (blog/parse-git-diff-report-line diff-line (not (= ?: (string-to-char diff-line)))))  ; Turn the line into a record; only the first line will begin with a colon
-		     (action (blog/git-diff-report-record-action diff-record)))
+	      (let* ((diff-record (blog-parse-git-diff-report-line diff-line (not (= ?: (string-to-char diff-line)))))  ; Turn the line into a record; only the first line will begin with a colon
+		     (action (blog-git-diff-report-record-action diff-record)))
 		(if (or (not files-to-check)
-			(cl-find-if (lambda (path-to-test) (or (string-equal path-to-test (blog/git-object-path (blog/git-diff-report-record-old diff-record)))
-							       (string-equal path-to-test (blog/git-object-path (blog/git-diff-report-record-new diff-record))))) files-to-check))
+			(cl-find-if (lambda (path-to-test) (or (string-equal path-to-test (blog-git-object-path (blog-git-diff-report-record-old diff-record)))
+							       (string-equal path-to-test (blog-git-object-path (blog-git-diff-report-record-new diff-record))))) files-to-check))
 		    (cond ((eq action 'added) (setq added-files (append added-files (list diff-record))))
 			  ((eq action 'modified) (setq modified-files (append modified-files (list diff-record))))
 			  ((eq action 'deleted) (setq deleted-files (append deleted-files (list diff-record))))))))))

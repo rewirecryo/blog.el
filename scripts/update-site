@@ -2,20 +2,20 @@
 (load-file "conf.el")
 (load "blog")
 (if (not (file-exists-p database-path))
-    (blog/create-database database-path))
+    (blog-create-database database-path))
 
 ;; This connection object will be used to refer to the database from now on
 (setq blog-db (sqlite-open database-path))
 
 (unwind-protect
-    (progn (if (blog/stored-authors-needs-update blog-db authors-file-path)
+    (progn (if (blog-stored-authors-needs-update blog-db authors-file-path)
 	       (condition-case caught-err
 		   (progn
 		     (sqlite-transaction blog-db)
-		     (blog/push-authors-to-database blog-db (blog/load-authors-from-file authors-file-path) t)
+		     (blog-push-authors-to-database blog-db (blog-load-authors-from-file authors-file-path) t)
 		     (sqlite-execute blog-db
 				     "INSERT INTO authors_file_hash_table (id, hash) VALUES (1, ?) ON CONFLICT DO UPDATE SET id = 1, hash = ?;"
-				     (make-list 2 (blog/calculate-authors-file-hash authors-file-path)))
+				     (make-list 2 (blog-calculate-authors-file-hash authors-file-path)))
 		     (sqlite-commit blog-db))
 		 ((error) (progn (sqlite-rollback blog-db)
 				 (signal (car caught-err) (cdr caught-err)))))))
