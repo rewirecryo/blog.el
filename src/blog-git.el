@@ -77,7 +77,7 @@ will expect LINE to NOT begin with ':'."
 						 ((= action-char ?M) (setq action-symbol 'modified)))
 					   action-symbol))))
 
-(defun blog-categorize-files (before-commit after-commit &optional files-to-check)
+(defun blog-git-generate-diff-report (before-commit after-commit &optional files-to-check)
   "Call 'git diff-tree -r --no-renames -z' to learn what files in
 FILES-TO-CHECK have changed between commits BEFORE-COMMIT and
 AFTER-COMMIT.
