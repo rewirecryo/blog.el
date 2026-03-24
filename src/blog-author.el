@@ -40,24 +40,32 @@ It's considered out of date in the following cases:
       (if (not (string-equal stored-hash calculated-hash))
 	  calculated-hash)))) ;; Return the calculated hash if it's different from that in the database
 
-(defun blog-load-authors-from-file (authors-file-path)
+(defun blog-load-authors-from-file (authors-file-path &optional as-alist)
     "Parse authors file AUTHORS-FILE-PATH and return a list of author objects
-for each author read from the file."
+for each author read from the file.
+
+If AS-ALIST is nil, return a list. If AS-ALIST is non-nil, return an
+alist, whose keys are the nominal IDs of their corresponding blog-author
+objects."
     (with-temp-buffer
       (insert-file-contents authors-file-path)
       (let ((parsed-json (json-parse-buffer))
-	    (new-author nil))
+	    (final-list ()))
 	(if (not (vectorp parsed-json))
 	    (error "Root element in author file `%s' is not an array" authors-file-path))
-	(seq-map (lambda (j-current-author)
+	(seq-do (lambda (j-current-author)
 		   (let ((first-name (gethash "first_name" j-current-author))
 			 (last-name (gethash "last_name" j-current-author))
 			 (nominal-id (gethash "nominal_id" j-current-author)))
-		     (setq new-author (make-instance blog-author
-						     :first-name first-name
-						     :last-name last-name
-						     :nominal-id nominal-id))))
-		 parsed-json))))
+		     (if as-alist
+			 (push nominal-id final-list))
+		     (push (make-instance blog-author
+					  :first-name first-name
+					  :last-name last-name
+					  :nominal-id nominal-id)
+			   final-list)))
+		parsed-json)
+	(reverse final-list))))
 
 (defun blog-push-authors-to-database (db authors &optional non-atomic)
   "Push list of author objects, AUTHORS, to the database DB.
