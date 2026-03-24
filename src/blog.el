@@ -1,27 +1,10 @@
 (require 'blog-author)
 (require 'blog-database)
 (require 'blog-git)
-(setq-default blog-post-tag "blog_post")
+(require 'blog-post)
 (setq-default blog-post-file-extension ".html")
 
 
-(defun blog-is-post-at-point
-    ()
-  "Return whether the org entry at (point) is a blogpost."
-  (if (member blog-post-tag (org-get-tags (point) t))
-      t
-    nil))
-
-(defun blog-get-stub-at-point
-    ()
-  "Either retrieve or create a stub for the current entry."
-  (let ((preset-stub (org-entry-get (point) "stub" nil)))
-    (if preset-stub
-	preset-stub
-      (progn
-	(replace-regexp-in-string "-$" ""
-	(replace-regexp-in-string "[^a-z0-9-]+" "-"
-	(downcase (nth 4 (org-heading-components)))))))))
 
 (defun blog-get-output-filename-at-point
     (&optional file-ext)
@@ -51,7 +34,7 @@ If OVERWRITE is non-nil, the function will is allowed to overwrite the
 file if it already exists. Otherwise, the function will signal an
 error upon trying to publish to an already-existing file."
   (interactive "DPlease provide parent directory: \ni\ni\ni")
-  (if (blog-is-post-at-point)
+  (if (blog-post-at-point-p)
       (let ((post-text (org-export-as 'html t nil)) (post-output-path (concat publish-dir "/" (blog-get-output-filename-at-point file-ext))))
 	(with-temp-buffer
 	  (insert post-text)
@@ -93,27 +76,5 @@ It's also what will be stored in the database, verbatim.
 	  (sqlite-commit conn))
       (sqlite-rollback conn))))
 
-(defun blog-query-info-at-point
-    (file-path)
-  "Return all information about the post at (point) that you'd need to put
-that post into the database.
-
-FILE-PATH is the desired value of the 'file' column.
-"
-  (interactive)
-  (list (nth 4 (org-heading-components))
-    (org-entry-get (point) "subtitle" nil)
-    (org-entry-get (point) "author" nil)
-    (string-to-number
-     (org-timestamp-format (org-timestamp-from-string
-			    (org-entry-get (point) "date_published"))
-			   "%s"))
-    (if (org-entry-get (point) "date_modified")
-	(string-to-number
-	 (org-timestamp-format (org-timestamp-from-string
-				(org-entry-get (point) "date_modified"))
-			       "%s")))
-    (blog-get-stub-at-point)
-    file-path))
 
 (provide 'blog)
