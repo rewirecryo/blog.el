@@ -141,6 +141,16 @@ associated, if any."
 	    (org-forward-heading-same-level 1))))
       (reverse final-list))))
 
+(defun blog-fetch-posts-from-file (filename authors-list &optional as-plist existing-posts src-file-path)
+  "Given a file FILENAME, read the posts from that file, and return them as
+a list, or as a property list if AS-PLIST is non-nil.
+
+Other than FILENAME, parameters are the same as those
+of (blog-read-posts-from-buffer)."
+  (with-temp-buffer (org-mode)
+		    (insert-file-contents filename)
+		    (blog-read-posts-from-buffer (current-buffer) authors-list as-plist existing-posts src-file-path)))
+
 (cl-defmethod blog-post-publish ((post blog-post) (output-file string) &optional (overwrite bool))
   "Publish a blog post, POST to a file at OUTPUT-FILE.
 
