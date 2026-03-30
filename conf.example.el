@@ -1,6 +1,9 @@
 ;; Root directory of blog
 ;; (setq blog-root "/path/to/blog")
 
+;; Directory where the posts will be exported
+;; (setq blog-post-directory "posts-html")
+
 ;; Path to the blog's database
 (setq database-path "blog.db")
 
