@@ -49,6 +49,14 @@ If BLOG-ROOT is not set, just return RELATIVE-FILENAME."
       (file-name-concat blog-root relative-filename)
     relative-filename))
 
+(defun fetch-posts-from-untouched-files ()
+  (let ((final-list ()))
+    (dolist (current-untouched-file untouched-files)
+      (if (file-exists-p (prepend-blog-root current-untouched-file))
+	  (setq final-list (append final-list
+				   (blog-fetch-posts-from-file (prepend-blog-root current-untouched-file) authors t)))))
+    final-list))
+
 (defun initialize-posts-to-update ()
   "Initialize posts-to-update as a list of posts whose database entries need to be created or updated."
         (let ((undecided-posts ()))
