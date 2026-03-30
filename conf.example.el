@@ -1,3 +1,6 @@
+;; Root directory of blog
+;; (setq blog-root "/path/to/blog")
+
 ;; Path to the blog's database
 (setq database-path "blog.db")
 
