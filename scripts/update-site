@@ -28,12 +28,23 @@
 (setq authors-needs-update (blog-stored-authors-needs-update blog-db authors-file-path))
 (setq authors (blog-load-authors-from-file authors-file-path))
 (setq diff-report (blog-git-generate-diff-report (nth 0 argv) (nth 1 argv) blog-files))
+(setq added-or-modified-files (append (plist-get diff-report :added) (plist-get diff-report :modified)))
+(setq touched-files (append added-or-modified-files (plist-get diff-report :deleted)))
 (setq posts-to-update ())
+
+(setq untouched-files (let ((final-files ()))
+			(dolist (current-file blog-files)
+			  (if (not (seq-find (lambda (current-diff-record)
+					       (string-equal (blog-git-object-path (blog-git-diff-report-record-old current-diff-record))
+							     current-file))
+					     touched-files))
+			      (push current-file final-files)))
+			final-files))
+
 
 (defun initialize-posts-to-update ()
   "Initialize posts-to-update as a list of posts whose database entries need to be created or updated."
-        (let ((undecided-posts ())
-	    (added-or-modified-files (append (plist-get diff-report :added) (plist-get diff-report :modified))))
+        (let ((undecided-posts ()))
 	(with-temp-buffer
 	  (org-mode)
 	  (dolist (current-record added-or-modified-files)
