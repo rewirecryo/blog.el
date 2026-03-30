@@ -76,7 +76,7 @@ creating a transaction or rolling back failed statements."
       (progn (if (not non-atomic) (sqlite-transaction db))
 	     (seq-map (lambda (current-author)
 			(sqlite-execute db
-					"INSERT INTO authors (name_id, first_name, last_name) VALUES (?, ?, ?) ON CONFLICT DO UPDATE SET name_id = ?, first_name = ?, last_name = ?;"
+					"INSERT INTO authors (nominal_id, first_name, last_name) VALUES (?, ?, ?) ON CONFLICT DO UPDATE SET nominal_id = ?, first_name = ?, last_name = ?;"
 					(list (blog-author-nominal-id current-author)
 					      (blog-author-first-name current-author)
 					      (blog-author-last-name current-author)

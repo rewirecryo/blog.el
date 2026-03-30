@@ -71,7 +71,7 @@ It's also what will be stored in the database, verbatim.
 	(progn
 	  (sqlite-transaction conn)
 	  (sqlite-execute conn "INSERT INTO files (path, hash, size) VALUES (?, ?, ?) ON CONFLICT DO UPDATE SET path=?, hash=?, size=?;" (list file-path computed-hash file-size file-path computed-hash file-size))
-	  (sqlite-execute conn "INSERT OR REPLACE INTO posts (title, subtitle, author, date_published, date_modified, stub, file) VALUES (?, ?, (SELECT id FROM authors WHERE name_id=?), ?, ?, ?, (SELECT id FROM files WHERE path=?));"
+	  (sqlite-execute conn "INSERT OR REPLACE INTO posts (title, subtitle, author, date_published, date_modified, stub, file) VALUES (?, ?, (SELECT id FROM authors WHERE nominal_id=?), ?, ?, ?, (SELECT id FROM files WHERE path=?));"
 			  (blog-query-info-at-point file-path))
 	  (sqlite-commit conn))
       (sqlite-rollback conn))))
