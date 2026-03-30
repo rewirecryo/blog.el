@@ -2,7 +2,7 @@
 
 (defclass blog-post ()
   ((nominal-id :initarg :nominal-id
-	       :reader blog-nominal-id)
+	       :reader blog-post-nominal-id)
    (title :initarg :title
 	  :reader blog-post-title)
    (subtitle :initarg :subtitle
@@ -50,7 +50,7 @@ return a Unix timestamp."
     nil))
 
 (defun blog-parse-post-at-point
-    (authors-list blog-root file-path &optional ignore-check)
+    (authors-list file-path &optional ignore-check blog-root src-file-path)
   "Parse the Org entry at (point), and return a (blog-post) object.
 
 A post needs a valid author, which will be chosen from AUTHORS-LIST,
@@ -60,7 +60,11 @@ matching nominal ID will be used.
 FILE-PATH is the desired value of the 'file' slot.
 
 Unless IGNORE-CHECK is t, an error will be thrown if the org entry
-doesn't meet the requirements of blog-post-at-point-p."
+doesn't meet the requirements of blog-post-at-point-p.
+
+If SRC-FILE-PATH is non-nil, it will be set as the blog-post's source
+file. Otherwise, the blog-post's source file will be (buffer-file-name),
+relative to BLOG-ROOT."
   (if (not ignore-check)
       (if (not (blog-post-at-point-p))
 	  (error "Org entry at (point) is not a blog post")))
@@ -69,7 +73,8 @@ doesn't meet the requirements of blog-post-at-point-p."
 				      (error "Empty title"))
 		 :nominal-id (or (org-entry-get (point) "nominal_id")
 				 (error "Missing nominal ID"))
-		 :subtitle (org-entry-get (point) "subtitle" nil)
+		 :subtitle (or (org-entry-get (point) "subtitle")
+			       (error "Missing subtitle"))
 		 :author (let ((found-author nil) (author-to-try (org-entry-get (point) "author" nil)))
 			   (dolist (current-author authors-list)
 			     (if (string-equal (blog-author-nominal-id current-author)
@@ -84,7 +89,10 @@ doesn't meet the requirements of blog-post-at-point-p."
 		 :date-modified (if (org-entry-get (point) "date_modified") (blog-org-timestamp-string-to-unix-timestamp (org-entry-get (point) "date_modified")))
 		 :stub (or (blog-get-stub-at-point)
 			   (error "Missing stub"))
-		 :src-file-path (file-relative-name (buffer-file-name) blog-root)
+		 :src-file-path (or src-file-path
+				    (if (buffer-file-name)
+					(file-relative-name (buffer-file-name) blog-root)
+				      nil))
 		 :hash (blog-hash (save-excursion (org-back-to-heading)
 						  (buffer-substring (point)
 								    (org-element-contents-end (org-element-at-point)))))
@@ -98,6 +106,52 @@ doesn't meet the requirements of blog-post-at-point-p."
 
 (cl-defmethod blog-post-calculate-hash (post blog-post)
   "Given a blog-post, POST, calculate the hash of its contents."
-  (blog-hash ))
+  (blog-hash post))
 
+(defun blog-read-posts-from-buffer (buffer authors-list &optional as-alist existing-posts)
+  "Return a list of all posts in a given BUFFER, with the authors being
+stored in AUTHORS-LIST.
+
+If AS-ALIST is non-nil, return the list of posts as an alist, with the
+post's nominal ID as its key.
+
+If AS-ALIST is non-nil, any post found in BUFFER whose alist key is the
+same as one in EXISTING-POSTS, will result in an error."
+  (let ((final-list ()))
+    (with-current-buffer buffer
+      (if (not (string-equal mode-name "Org"))
+	  (error "Buffer is not an Org buffer") buffer)
+      (save-excursion
+	(let ((last-point 0))
+	  (goto-char 1)
+	  (while (not (= (point) last-point))
+	    (if (blog-post-at-point-p)
+		(progn
+		  (let* ((current-post (blog-parse-post-at-point authors-list "" nil (blog-git-object-path (blog-git-diff-report-record-old current-record))))
+			 (current-post-nominal-id (blog-post-nominal-id current-post)))
+		    (if as-alist
+			(progn (if (assoc current-post-nominal-id (append final-list existing-posts))
+				   (error "Blog post `%s' was found twice" current-post-nominal-id)
+				 (push (list current-post-nominal-id current-post) final-list)))
+		      (push current-post final-list)))))
+	    (setq last-point (point))
+	    (org-forward-heading-same-level 1))))
+      (reverse final-list))))
+
+(cl-defmethod blog-post-publish ((post blog-post) (output-file string) &optional (overwrite bool))
+  "Publish a blog post, POST to a file at OUTPUT-FILE.
+
+If OVERWRITE is non-nil, an exception will be thrown if the file already
+exists.
+
+If the file is successfully written, the content of the HTML file will
+be returned."
+  (with-temp-buffer (insert (blog-post-content post))
+		    (let ((post-html (org-export-as 'html nil nil t)))
+		      (if (not (and (file-exists-p output-file)
+				    (not overwrite)))
+			  (progn (with-temp-file output-file
+				   (insert post-html)
+				   post-html))
+			(error "File `%s' already exists" output-file)))))
 (provide 'blog-post)

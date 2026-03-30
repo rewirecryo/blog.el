@@ -19,6 +19,13 @@
 	   :documentation "What happened to the object between the two trees."))
   :documentation "Stores a single Git object's changes between two trees.")
 
+(cl-defmethod blog-git-object-show ((git-obj blog-git-object))
+  "Show the contents of a given git object GIT-OBJ."
+  (with-temp-buffer (let ((cmd-exit-code (call-process "git" nil (list (current-buffer) t) nil "cat-file" "-p" (blog-git-object-hash git-obj))))
+		      (if (not (= 0 cmd-exit-code))
+			  (error "cat-file failed" (buffer-string))
+		      (buffer-string)))))
+
 (defun blog-parse-git-diff-report-line (line &optional ignore-colon)
   "Given a segment from 'git diff-tree -r', LINE, return a blog-git-diff-report-record.
 
@@ -99,10 +106,17 @@ Return an alist of three lists:
 	  (progn
 	    (dolist (diff-line (split-string (buffer-string) "\0:"))
 	      (let* ((diff-record (blog-parse-git-diff-report-line diff-line (not (= ?: (string-to-char diff-line)))))  ; Turn the line into a record; only the first line will begin with a colon
-		     (action (blog-git-diff-report-record-action diff-record)))
+		     (action (blog-git-diff-report-record-action diff-record))
+		     (oldobj-path (blog-git-object-path (blog-git-diff-report-record-old diff-record)))
+		     (newobj-path (blog-git-object-path (blog-git-diff-report-record-new diff-record))))
+
 		(if (or (not files-to-check)
-			(cl-find-if (lambda (path-to-test) (or (string-equal path-to-test (blog-git-object-path (blog-git-diff-report-record-old diff-record)))
-							       (string-equal path-to-test (blog-git-object-path (blog-git-diff-report-record-new diff-record))))) files-to-check))
+			(cl-find-if (lambda (path-to-test)
+				      (or (string-equal oldobj-path
+							path-to-test)
+					  (string-equal newobj-path
+							path-to-test)))
+				    files-to-check))
 		    (cond ((eq action 'added) (setq added-files (append added-files (list diff-record))))
 			  ((eq action 'modified) (setq modified-files (append modified-files (list diff-record))))
 			  ((eq action 'deleted) (setq deleted-files (append deleted-files (list diff-record))))))))))

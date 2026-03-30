@@ -1,4 +1,5 @@
 #!/usr/bin/emacs --script
+(require 'org)
 
 (setq min-argc 2)
 (if (< (length argv) min-argc)
@@ -11,28 +12,77 @@
 
 ;; This connection object will be used to refer to the database from now on
 (setq blog-db (sqlite-open database-path))
-
+(sqlite-execute blog-db "PRAGMA foreign_keys = ON;")
 
 (defun update-authors ()
   "Update authors list in the database."
-      (condition-case caught-err
-	  (progn
-	    (sqlite-transaction blog-db)
-	    (blog-push-authors-to-database blog-db (blog-load-authors-from-file authors-file-path) t)
-	    (sqlite-execute blog-db
-			    "INSERT INTO authors_file_hash_table (id, hash) VALUES (1, ?) ON CONFLICT DO UPDATE SET id = 1, hash = ?;"
-			    (make-list 2 (blog-calculate-authors-file-hash authors-file-path)))
-	    (sqlite-commit blog-db))
-	((error) (progn (sqlite-rollback blog-db)
-			(signal (car caught-err) (cdr caught-err))))))
+  (condition-case caught-err
+      (progn
+	(blog-push-authors-to-database blog-db (blog-load-authors-from-file authors-file-path) t)
+	(sqlite-execute blog-db
+			"INSERT INTO authors_file_hash_table (id, hash) VALUES (1, ?) ON CONFLICT DO UPDATE SET id = 1, hash = ?;"
+			(make-list 2 (blog-calculate-authors-file-hash authors-file-path))))))
 
-(setq authors-needs-update nil)
 (setq posts-need-update nil)
+(setq authors-needs-update (blog-stored-authors-needs-update blog-db authors-file-path))
+(setq authors (blog-load-authors-from-file authors-file-path))
+(setq diff-report (blog-git-generate-diff-report (nth 0 argv) (nth 1 argv) blog-files))
+(setq posts-to-update ())
+
+(defun initialize-posts-to-update ()
+  "Initialize posts-to-update as a list of posts whose database entries need to be created or updated."
+        (let ((undecided-posts ())
+	    (added-or-modified-files (append (plist-get diff-report :added) (plist-get diff-report :modified))))
+	(with-temp-buffer
+	  (org-mode)
+	  (dolist (current-record added-or-modified-files)
+	    (erase-buffer)
+	    (insert (blog-git-object-show (blog-git-diff-report-record-new current-record)))
+	    (setq undecided-posts (append undecided-posts (blog-read-posts-from-buffer (current-buffer) authors t nil)))))
+
+	(dolist (current-undecided-post-assoc undecided-posts)
+	  (let* ((current-undecided-post (nth 1 current-undecided-post-assoc))
+					 (stored-hash-query-result (sqlite-select blog-db
+							  "SELECT hash = ? FROM posts WHERE nominal_id=?;"
+							  (list (blog-post-hash current-undecided-post)
+								(blog-post-nominal-id current-undecided-post)))))
+	    (if (or (seq-empty-p stored-hash-query-result)
+		    (= (nth 0 (nth 0 stored-hash-query-result))))
+		(push current-undecided-post posts-to-update))))))
+
 
 (unwind-protect
     (progn
-      (setq authors-needs-update (blog-stored-authors-needs-update blog-db authors-file-path))
-      (setq outdated-files (blog-git-generate-diff-report (nth 0 argv) (nth 1 argv)))
-
+      (sqlite-transaction blog-db)
+      (if (authors-needs-update)
 	  (update-authors))
+
+      ;; TODO: Function to make sure that every post's author still exists if (update-authors) was called
+
+      (initialize-posts-to-update)
+
+      (condition-case caught-err
+	  (progn
+	    (dolist (current-post posts-to-update)
+	      (let ((post-path (concat (blog-post-nominal-id current-post) ".html")))
+		(sqlite-execute blog-db
+				"INSERT INTO files (path, hash, size) VALUES (?, ?, ?) ON CONFLICT (path) DO UPDATE SET path=?, hash=?, size=?;"
+				(let* ((post-html (blog-post-publish current-post (file-name-concat blog-export-directory post-path) t))
+				       (query-args (list post-path (blog-hash post-html) (length post-html))))
+				  (append query-args query-args)))
+		(sqlite-execute blog-db
+				"INSERT INTO posts (nominal_id, title, subtitle, author, date_published, date_modified, stub, file, hash) VALUES (?, ?, ?, (SELECT id FROM authors WHERE nominal_id=?), ?, ?, ?, (SELECT id FROM files WHERE path=?), ?) ON CONFLICT (nominal_id) DO UPDATE SET nominal_id=?, title=?, subtitle=?, author=(SELECT id FROM authors WHERE nominal_id=?), date_published=?, date_modified=?, stub=?, file=(SELECT id FROM files WHERE path=?), hash=?;"
+				(let* ((post-nominal-id (blog-post-nominal-id current-post))
+				      (post-title (blog-post-title current-post))
+				      (post-subtitle (blog-post-subtitle current-post))
+				      (post-author-nominal-id (blog-author-nominal-id (blog-post-author current-post)))
+				      (post-date-published (blog-post-date-published current-post))
+				      (post-date-modified (blog-post-date-modified current-post))
+				      (post-stub (blog-post-stub current-post))
+				      (post-hash (blog-post-hash current-post))
+				      (query-args (list post-nominal-id post-title post-subtitle post-author-nominal-id post-date-published post-date-modified post-stub post-path post-hash)))
+				  (append query-args query-args)))))
+	    (sqlite-commit blog-db))
+	(error (sqlite-rollback blog-db)
+	       (signal (car caught-err) (cdr caught-err)))))
   (sqlite-close blog-db))

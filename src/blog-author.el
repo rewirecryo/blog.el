@@ -85,7 +85,7 @@ creating a transaction or rolling back failed statements."
 					      (blog-author-last-name current-author))))
 		      authors)
 	     (if (not non-atomic) sqlite-commit db))
-    ((error) (if (not non-atomic) (sqlite-rollback db))
-	      (signal (car caught-err) (cdr caught-err)))))
+    (error (if (not non-atomic) (sqlite-rollback db))
+	   (signal (car caught-err) (cdr caught-err)))))
 
 (provide 'blog-author)
