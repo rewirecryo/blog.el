@@ -41,6 +41,13 @@
 			      (push current-file final-files)))
 			final-files))
 
+(defun prepend-blog-root (relative-filename)
+  "Return RELATIVE-FILENAME prepended by the blog root directory.
+
+If BLOG-ROOT is not set, just return RELATIVE-FILENAME."
+  (if blog-root
+      (file-name-concat blog-root relative-filename)
+    relative-filename))
 
 (defun initialize-posts-to-update ()
   "Initialize posts-to-update as a list of posts whose database entries need to be created or updated."
