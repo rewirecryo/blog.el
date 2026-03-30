@@ -45,22 +45,27 @@
 (defun initialize-posts-to-update ()
   "Initialize posts-to-update as a list of posts whose database entries need to be created or updated."
         (let ((undecided-posts ()))
-	(with-temp-buffer
-	  (org-mode)
-	  (dolist (current-record added-or-modified-files)
-	    (erase-buffer)
-	    (insert (blog-git-object-show (blog-git-diff-report-record-new current-record)))
-	    (setq undecided-posts (append undecided-posts (blog-read-posts-from-buffer (current-buffer) authors t nil)))))
+	  (with-temp-buffer
+	    (org-mode)
+	    (dolist (current-record added-or-modified-files)
+	      (erase-buffer)
+	      (insert (blog-git-object-show (blog-git-diff-report-record-new current-record)))
+	      (setq undecided-posts (append undecided-posts
+					    (blog-read-posts-from-buffer (current-buffer)
+									 authors
+									 t
+									 nil
+									 (blog-git-object-path (blog-git-diff-report-record-old current-record)))))))
 
-	(dolist (current-undecided-post-assoc undecided-posts)
-	  (let* ((current-undecided-post (nth 1 current-undecided-post-assoc))
-					 (stored-hash-query-result (sqlite-select blog-db
-							  "SELECT hash = ? FROM posts WHERE nominal_id=?;"
-							  (list (blog-post-hash current-undecided-post)
-								(blog-post-nominal-id current-undecided-post)))))
-	    (if (or (seq-empty-p stored-hash-query-result)
-		    (= (nth 0 (nth 0 stored-hash-query-result))))
-		(push current-undecided-post posts-to-update))))))
+	  (dolist (current-undecided-post-assoc undecided-posts)
+	    (let* ((current-undecided-post (nth 1 current-undecided-post-assoc))
+		   (stored-hash-query-result (sqlite-select blog-db
+							    "SELECT hash = ? FROM posts WHERE nominal_id=?;"
+							    (list (blog-post-hash current-undecided-post)
+								  (blog-post-nominal-id current-undecided-post)))))
+	      (if (or (seq-empty-p stored-hash-query-result)
+		      (= (nth 0 (nth 0 stored-hash-query-result))))
+		  (push current-undecided-post posts-to-update))))))
 
 
 (unwind-protect

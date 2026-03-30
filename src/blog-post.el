@@ -108,7 +108,7 @@ relative to BLOG-ROOT."
   "Given a blog-post, POST, calculate the hash of its contents."
   (blog-hash post))
 
-(defun blog-read-posts-from-buffer (buffer authors-list &optional as-alist existing-posts)
+(defun blog-read-posts-from-buffer (buffer authors-list &optional as-alist existing-posts src-file-path)
   "Return a list of all posts in a given BUFFER, with the authors being
 stored in AUTHORS-LIST.
 
@@ -116,7 +116,10 @@ If AS-ALIST is non-nil, return the list of posts as an alist, with the
 post's nominal ID as its key.
 
 If AS-ALIST is non-nil, any post found in BUFFER whose alist key is the
-same as one in EXISTING-POSTS, will result in an error."
+same as one in EXISTING-POSTS, will result in an error.
+
+SRC-FILE-PATH is the source .org file with which the posts should be
+associated, if any."
   (let ((final-list ()))
     (with-current-buffer buffer
       (if (not (string-equal mode-name "Org"))
@@ -127,7 +130,7 @@ same as one in EXISTING-POSTS, will result in an error."
 	  (while (not (= (point) last-point))
 	    (if (blog-post-at-point-p)
 		(progn
-		  (let* ((current-post (blog-parse-post-at-point authors-list "" nil (blog-git-object-path (blog-git-diff-report-record-old current-record))))
+		  (let* ((current-post (blog-parse-post-at-point authors-list "" nil nil src-file-path))
 			 (current-post-nominal-id (blog-post-nominal-id current-post)))
 		    (if as-alist
 			(progn (if (assoc current-post-nominal-id (append final-list existing-posts))
