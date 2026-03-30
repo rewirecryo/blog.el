@@ -1,11 +1,11 @@
-(setq blog-max-nominal-id-length 32)
+(setq blog-max-nominal-id-length 64)
 (setq blog-max-first-name-length 40)
 (setq blog-max-last-name-length 40)
 (setq blog-max-file-path-length 128)
 (setq blog-hash-length 128)
 (setq blog-max-subtitle-length 240)
 (setq blog-max-title-length 80)
-(setq blog-max-stub-length 32)
+(setq blog-max-stub-length 80)
 
 (defun blog-initialize-database (conn)
   "Turn database CONN, into a database that can serve as a Zero database."
