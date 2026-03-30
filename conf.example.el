@@ -1,3 +1,6 @@
+;; Files that will be checked for blog posts
+;; (setq blog-files (list "posts/blog.org" "posts/blog-extra.org"))
+
 ;; Root directory of blog
 ;; (setq blog-root "/path/to/blog")
 
