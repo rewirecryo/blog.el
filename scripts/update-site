@@ -55,7 +55,7 @@
 (unwind-protect
     (progn
       (sqlite-transaction blog-db)
-      (if (authors-needs-update)
+      (if authors-needs-update
 	  (update-authors))
 
       ;; TODO: Function to make sure that every post's author still exists if (update-authors) was called
