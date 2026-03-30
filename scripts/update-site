@@ -12,7 +12,8 @@
 
 ;; This connection object will be used to refer to the database from now on
 (setq blog-db (sqlite-open database-path))
-(sqlite-execute blog-db "PRAGMA foreign_keys = ON;")
+(if (not (sqlite-pragma blog-db "foreign_keys = ON;"))
+    (error "Could not set 'foreign_keys = ON' pragma"))
 
 (defun update-authors ()
   "Update authors list in the database."
