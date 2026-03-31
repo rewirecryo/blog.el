@@ -69,7 +69,7 @@ If BLOG-ROOT is not set, just return RELATIVE-FILENAME."
 					    (blog-read-posts-from-buffer (current-buffer)
 									 authors
 									 t
-									 nil
+									 (append undecided-posts (fetch-posts-from-untouched-files))
 									 (blog-git-object-path (blog-git-diff-report-record-old current-record)))))))
 
 	  (dolist (current-undecided-post-assoc undecided-posts)
