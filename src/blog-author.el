@@ -9,19 +9,13 @@
    (last-name :accessor blog-author-last-name
 	      :initarg :last-name)))
 
-(defun blog-calculate-authors-file-hash (authors-file)
-  "Calculate the hash of the authors file."
-  (with-temp-buffer
-    (insert-file-contents authors-file)
-    (blog-hash (current-buffer))))
-
 (defun blog-fetch-stored-authors-file-hash (db)
   "Query database DB for the hash value for author.json that was last stored."
   (let ((hash-row (nth 0 (sqlite-select db "SELECT hash FROM authors_file_hash_table WHERE id=1;"))))
     (if hash-row
 	(nth 0 hash-row))))
 
-(defun blog-stored-authors-needs-update (db authors-file)
+(defun blog-stored-authors-needs-update (db authors-file-object)
   "Check whether the list of authors in database DB needs to be updated.
 
 It's considered out of date in the following cases:
@@ -36,20 +30,19 @@ It's considered out of date in the following cases:
   (let ((stored-hash (blog-fetch-stored-authors-file-hash db)) (calculated-hash nil))
     (if (not stored-hash)
 	t
-      (setq calculated-hash (blog-calculate-authors-file-hash authors-file))
+      (setq calculated-hash (blog-hash (blog-git-object-show authors-file-object)))
       (if (not (string-equal stored-hash calculated-hash))
 	  calculated-hash)))) ;; Return the calculated hash if it's different from that in the database
 
-(defun blog-load-authors-from-file (authors-file-path &optional as-alist)
-    "Parse authors file AUTHORS-FILE-PATH and return a list of author objects
-for each author read from the file.
+(defun blog-load-authors-from-buffer (buffer &optional as-alist)
+    "Parse authors in buffer BUFFER and return a list of author objects
+for each author read from the buffer.
 
 If AS-ALIST is nil, return a list. If AS-ALIST is non-nil, return an
 alist, whose keys are the nominal IDs of their corresponding blog-author
 objects."
-    (with-temp-buffer
-      (insert-file-contents authors-file-path)
-      (let ((parsed-json (json-parse-buffer))
+    (with-current-buffer buffer
+      (let ((parsed-json (json-parse-string (buffer-string)))
 	    (final-list ()))
 	(if (not (vectorp parsed-json))
 	    (error "Root element in author file `%s' is not an array" authors-file-path))
@@ -66,6 +59,17 @@ objects."
 			   final-list)))
 		parsed-json)
 	(reverse final-list))))
+
+(defun blog-load-authors-from-git-object (git-object &optional as-alist)
+  "Parse authors in Git object GIT-OBJECT and return a list of author
+objects for each author read from the object.
+
+If AS-ALIST is nil, return a list. If AS-ALIST is non-nil, return an
+alist, whose keys are the nominal IDs of their corresponding blog-author
+objects."
+  (with-temp-buffer
+    (insert (blog-git-object-show git-object))
+    (blog-load-authors-from-buffer (current-buffer) as-alist)))
 
 (defun blog-push-authors-to-database (db authors &optional non-atomic)
   "Push list of author objects, AUTHORS, to the database DB.

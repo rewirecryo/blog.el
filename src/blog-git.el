@@ -71,11 +71,11 @@ will expect LINE to NOT begin with ':'."
     ;; Create (and return) a new git diff-report record
     (blog-git-diff-report-record :old (blog-git-object :mode (nth 0 first-cols)
 						       :hash (nth 2 first-cols)
-						       :path (nth 1 split-line-w-paths))  ; :path might be nil; that's okay.
+						       :path (nth 1 split-line-w-paths))
 
 				 :new (blog-git-object :mode (nth 1 first-cols)
 						       :hash (nth 3 first-cols)
-						       :path (nth 2 split-line-w-paths)) ; :path might be nil; that's okay.
+						       :path (nth 1 split-line-w-paths))  ; :path will be the same as the :old object, because all the Git actions tracked by blog-git.el (C, D and M) use the same path throughout the operation
 
 				 :action (let ((action-char (string-to-char (nth 4 first-cols)))
 					       (action-symbol nil))
@@ -121,5 +121,47 @@ Return an alist of three lists:
 			  ((eq action 'modified) (setq modified-files (append modified-files (list diff-record))))
 			  ((eq action 'deleted) (setq deleted-files (append deleted-files (list diff-record))))))))))
       (list :added added-files :modified modified-files :deleted deleted-files))))
+
+(defun blog-git-diff-report-fetch-unchanged-files (diff-report tree)
+  "Given a diff report DIFF-REPORT, return a list of the files in the
+tree TREE that didn't change between the two commits."
+  (seq-filter (lambda (current-object)
+		(not (seq-find (lambda (current-report-record)
+				 (string-equal (blog-git-object-path current-object)
+					       (blog-git-object-path (blog-git-diff-report-record-new current-report-record))))
+			       (append (plist-get diff-report :added)
+				       (plist-get diff-report :modified)
+				       (plist-get diff-report :deleted)))))
+		     tree))
+
+(defun blog-git-parse-ls-tree-line (line)
+  "Given a line from 'git ls-tree', LINE, return a blog-git-object that
+holds the line's information."
+  (if (not (string-match "^[01467]+ [a-z]+ [0-9a-f]+\t.+" line))
+      (error "Invalid line"))
+  (let ((first-three-elements (string-split line))
+	(object-path (substring line (1+ (string-search "\t" line)) (length line))))
+    (make-instance blog-git-object
+		   :mode (nth 0 first-three-elements)
+		   :hash (nth 2 first-three-elements)
+		   :path object-path)))
+
+(defun blog-git-tree-fetch-objects (tree-id &optional valid-paths)
+  "Given a Git tree identified by TREE-ID, return a list of all of that
+tree's objects.
+
+If VALID-PATHS is non-nil, only objects whose paths exist in VALID-PATHS
+will be included in the list."
+  (with-temp-buffer (let ((exit-code (call-process "git" nil t nil "ls-tree" "-r" "-z" tree-id))
+			  (final-list ()))
+			  (if (not (= exit-code 0))
+			      (error "git ls-tree failed"))
+			  (dolist (line (seq-subseq (split-string (buffer-string) "\0") 0 -1))
+			    (let ((current-object (blog-git-parse-ls-tree-line line)))
+				  (if (or (not valid-paths)
+					  (seq-contains-p valid-paths
+							  (blog-git-object-path current-object)))
+				      (push current-object final-list))))
+			  final-list)))
 
 (provide 'blog-git)

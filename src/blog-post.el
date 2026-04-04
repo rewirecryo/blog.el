@@ -16,7 +16,7 @@
    (stub :initarg :stub
 	 :reader blog-post-stub)
    (src-file-path :initarg :src-file-path
-		  :reader src-file-path)
+		  :reader blog-post-src-file-path)
    (hash :initarg :hash
 	 :reader blog-post-hash)
    (content :initarg :content
@@ -150,6 +150,25 @@ of (blog-read-posts-from-buffer)."
   (with-temp-buffer (org-mode)
 		    (insert-file-contents filename)
 		    (blog-read-posts-from-buffer (current-buffer) authors-list as-alist existing-posts src-file-path)))
+
+(defun blog-fetch-posts-from-git-object (git-object authors-list &optional as-alist existing-posts src-file-path)
+  "Read the posts held in a GIT-OBJECT.
+
+If SRC-FILE-PATH is t, it's taken to be the path of GIT-OBJECT.
+Otherwise, it's interpreted the same as it is
+in (blog-read-posts-from-buffer).
+
+Other arguments are identical to those
+in (blog-read-posts-from-buffer)."
+  (with-temp-buffer (org-mode)
+		    (insert (blog-git-object-show git-object))
+		    (blog-read-posts-from-buffer (current-buffer)
+						 authors-list
+						 as-alist
+						 existing-posts
+						 (if (eq src-file-path t)
+						     (blog-git-object-path git-object)
+						   src-file-path))))
 
 (cl-defmethod blog-post-publish ((post blog-post) (output-file string) &optional (overwrite bool))
   "Publish a blog post, POST to a file at OUTPUT-FILE.

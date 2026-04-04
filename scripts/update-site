@@ -15,31 +15,14 @@
 (if (not (sqlite-pragma blog-db "foreign_keys = ON;"))
     (error "Could not set 'foreign_keys = ON' pragma"))
 
-(defun update-authors ()
-  "Update authors list in the database."
+(defun update-authors (db new-authors new-authors-file-hash)
+  "Update authors list in the database with new author list NEW-AUTHORS."
   (condition-case caught-err
       (progn
-	(blog-push-authors-to-database blog-db (blog-load-authors-from-file authors-file-path) t)
-	(sqlite-execute blog-db
+	(blog-push-authors-to-database db new-authors t)
+	(sqlite-execute db
 			"INSERT INTO authors_file_hash_table (id, hash) VALUES (1, ?) ON CONFLICT DO UPDATE SET id = 1, hash = ?;"
-			(make-list 2 (blog-calculate-authors-file-hash authors-file-path))))))
-
-(setq posts-need-update nil)
-(setq authors-needs-update (blog-stored-authors-needs-update blog-db authors-file-path))
-(setq authors (blog-load-authors-from-file authors-file-path))
-(setq diff-report (blog-git-generate-diff-report (nth 0 argv) (nth 1 argv) blog-files))
-(setq added-or-modified-files (append (plist-get diff-report :added) (plist-get diff-report :modified)))
-(setq touched-files (append added-or-modified-files (plist-get diff-report :deleted)))
-(setq posts-to-update ())
-
-(setq untouched-files (let ((final-files ()))
-			(dolist (current-file blog-files)
-			  (if (not (seq-find (lambda (current-diff-record)
-					       (string-equal (blog-git-object-path (blog-git-diff-report-record-old current-diff-record))
-							     current-file))
-					     touched-files))
-			      (push current-file final-files)))
-			final-files))
+			(list new-authors-file-hash new-authors-file-hash)))))
 
 (defun prepend-blog-root (relative-filename)
   "Return RELATIVE-FILENAME prepended by the blog root directory.
@@ -49,52 +32,118 @@ If BLOG-ROOT is not set, just return RELATIVE-FILENAME."
       (file-name-concat blog-root relative-filename)
     relative-filename))
 
-(defun fetch-posts-from-untouched-files ()
+(defun fetch-posts-from-untouched-files (authors-list)
   (let ((final-list ()))
     (dolist (current-untouched-file untouched-files)
       (if (file-exists-p (prepend-blog-root current-untouched-file))
 	  (setq final-list (append final-list
-				   (blog-fetch-posts-from-file (prepend-blog-root current-untouched-file) authors t)))))
+				   (blog-fetch-posts-from-file (prepend-blog-root current-untouched-file) authors-list t)))))
     final-list))
 
-(defun initialize-posts-to-update ()
-  "Initialize posts-to-update as a list of posts whose database entries need to be created or updated."
-        (let ((undecided-posts ()))
-	  (with-temp-buffer
-	    (org-mode)
-	    (dolist (current-record added-or-modified-files)
-	      (erase-buffer)
-	      (insert (blog-git-object-show (blog-git-diff-report-record-new current-record)))
-	      (setq undecided-posts (append undecided-posts
-					    (blog-read-posts-from-buffer (current-buffer)
-									 authors
-									 t
-									 (append undecided-posts (fetch-posts-from-untouched-files))
-									 (blog-git-object-path (blog-git-diff-report-record-old current-record)))))))
+(defun get-files-from-diff-report (diff-report)
+  "Given a diff report DIFF-REPORT, return a list of files that have been
+modified or added."
+  (let ((final-list ()) (added-files ()) (modified-files ()) (deleted-files ()))
+    (dolist (current-symbol (list :added :modified :deleted))
+      (setq final-list (append final-list
+			       (list current-symbol
+				     (seq-map (lambda (record)
+						(blog-git-object-path (blog-git-diff-report-record-old record)))
+					      (plist-get diff-report current-symbol))))))
+    final-list))
 
-	  (dolist (current-undecided-post-assoc undecided-posts)
+(defun get-added-or-modified-posts (diff-report authors-list &optional existing-files)
+  (let ((final-list ()))
+    (dolist (current-diff-record (append (plist-get diff-report :added)
+					 (plist-get diff-report :modified)))
+      (setq final-list (append final-list
+			       (blog-fetch-posts-from-git-object (blog-git-diff-report-record-new current-diff-record)
+								 authors-list
+								 t
+								 (if existing-files
+								     (append final-list existing-files)
+								   final-list)
+								 t))))
+      final-list))
+
+(defun get-posts-to-update (undecided-posts-alist)
+  "Initialize posts-to-update as a list of posts whose database entries
+need to be created or updated."
+  (let ((final-list ()))
+	  (dolist (current-undecided-post-assoc undecided-posts-alist)
 	    (let* ((current-undecided-post (nth 1 current-undecided-post-assoc))
-		   (stored-hash-query-result (sqlite-select blog-db
-							    "SELECT hash = ? FROM posts WHERE nominal_id=?;"
+		   (stored-delta-query-result (sqlite-select blog-db
+							    "SELECT hash = ? AND src_file = ? FROM posts WHERE nominal_id=?;" ; A post needs to be readded if it's moved files, or if its contents have changed
 							    (list (blog-post-hash current-undecided-post)
+								  (blog-post-src-file-path current-undecided-post)
 								  (blog-post-nominal-id current-undecided-post)))))
-	      (if (or (seq-empty-p stored-hash-query-result)
-		      (= (nth 0 (nth 0 stored-hash-query-result))))
-		  (push current-undecided-post posts-to-update))))))
+	      (if (or (seq-empty-p stored-delta-query-result)
+		      (= (nth 0 (nth 0 stored-delta-query-result))))
+		  (push current-undecided-post final-list))))
+	  final-list))
 
 
+(defun fetch-deleted-posts-nominal-ids (db deleted-files &optional not-deleted-posts)
+  "Query the database DB for the nominal IDs of posts associated with files
+in DELETED-FILES. If a given post exists in NOT-DELETED-POSTS, it will
+be considered moved instead of deleted, and will not be added to
+DELETED-FILES."
+  (let ((final-list ()) (query-result nil))
+    (dolist (current-deleted-file deleted-files)
+      (setq query-result (sqlite-select db "SELECT nominal_id FROM posts WHERE src_file = ?;" (list current-deleted-file)))
+      (dolist (current-result-row query-result)
+	(if (or (not not-deleted-posts)
+		(not (assoc (nth 0 current-result-row) not-deleted-posts)))
+	    (push (nth 0 current-result-row) final-list)))
+      final-list)))
+
+(setq old-tree-id (nth 0 argv))
+(setq new-tree-id (nth 1 argv))
 (unwind-protect
     (progn
       (sqlite-transaction blog-db)
-      (if authors-needs-update
-	  (update-authors))
 
       ;; TODO: Function to make sure that every post's author still exists if (update-authors) was called
 
-      (initialize-posts-to-update)
-
       (condition-case caught-err
 	  (progn
+
+	    (let* ((authors-file-object (nth 0 (blog-git-tree-fetch-objects new-tree-id (list authors-file-path))))
+		   (authors-needs-update nil))
+		   (setq authors (blog-load-authors-from-git-object authors-file-object))
+		   (setq authors-needs-update (blog-stored-authors-needs-update blog-db authors-file-object))
+		   (if authors-needs-update
+		       (update-authors blog-db authors	(blog-hash (blog-git-object-show authors-file-object)))))
+
+	    (setq new-tree (blog-git-tree-fetch-objects new-tree-id blog-files))
+	    (setq diff-report (blog-git-generate-diff-report old-tree-id new-tree-id blog-files))
+
+	    ;; Delete posts associated with deleted files
+	    (setq diff-report-files (get-files-from-diff-report diff-report))
+	    (dolist (current-deleted-file (plist-get diff-report-files :deleted))
+	      (sqlite-execute blog-db "DELETE FROM posts WHERE src_file=?;" (list current-deleted-file))
+	      (sqlite-execute blog-db "DELETE FROM files WHERE id=(SELECT file FROM posts WHERE src_file=?);" (list current-deleted-file)))
+
+	    ;; Delete all posts that are in the database, but aren't in any tracked files
+	    (setq added-or-modified-posts (get-added-or-modified-posts diff-report authors))
+	    (setq unchanged-objects (blog-git-diff-report-fetch-unchanged-files diff-report new-tree))
+	    (setq unchanged-posts (apply 'append (seq-map (lambda (current-object)
+						     (blog-fetch-posts-from-git-object current-object
+										       authors
+										       t
+										       added-or-modified-posts  ; We can forgo checking other unchanged files; we'll assume they don't contain any duplicates
+										       (blog-git-object-path current-object)))
+							  unchanged-objects)))
+	    (setq all-posts (append added-or-modified-posts unchanged-posts))
+	    (let ((post-query-results (sqlite-select blog-db "SELECT nominal_id FROM posts;")))
+	      (dolist (current-row post-query-results)
+		(if (not (assoc (nth 0 current-row) all-posts))
+		    (progn
+		      (sqlite-execute blog-db "DELETE FROM posts WHERE nominal_id = ?;" (list (nth 0 current-row)))
+		      (sqlite-execute blog-db "DELETE FROM files WHERE id = (SELECT file FROM posts WHERE nominal_id = ?);" (list (nth 0 current-row)))))))
+
+	    ;; Add to the database, or update, posts that have been created, or changed, respectively
+	    (setq posts-to-update (get-posts-to-update added-or-modified-posts))
 	    (dolist (current-post posts-to-update)
 	      (let ((post-path (concat (blog-post-nominal-id current-post) ".html")))
 		(sqlite-execute blog-db
@@ -103,7 +152,7 @@ If BLOG-ROOT is not set, just return RELATIVE-FILENAME."
 				       (query-args (list post-path (blog-hash post-html) (length post-html))))
 				  (append query-args query-args)))
 		(sqlite-execute blog-db
-				"INSERT INTO posts (nominal_id, title, subtitle, author, date_published, date_modified, stub, file, hash) VALUES (?, ?, ?, (SELECT id FROM authors WHERE nominal_id=?), ?, ?, ?, (SELECT id FROM files WHERE path=?), ?) ON CONFLICT (nominal_id) DO UPDATE SET nominal_id=?, title=?, subtitle=?, author=(SELECT id FROM authors WHERE nominal_id=?), date_published=?, date_modified=?, stub=?, file=(SELECT id FROM files WHERE path=?), hash=?;"
+				"INSERT INTO posts (nominal_id, title, subtitle, author, date_published, date_modified, stub, file, hash, src_file) VALUES (?, ?, ?, (SELECT id FROM authors WHERE nominal_id=?), ?, ?, ?, (SELECT id FROM files WHERE path=?), ?, ?) ON CONFLICT (nominal_id) DO UPDATE SET nominal_id=?, title=?, subtitle=?, author=(SELECT id FROM authors WHERE nominal_id=?), date_published=?, date_modified=?, stub=?, file=(SELECT id FROM files WHERE path=?), hash=?, src_file=?;"
 				(let* ((post-nominal-id (blog-post-nominal-id current-post))
 				      (post-title (blog-post-title current-post))
 				      (post-subtitle (blog-post-subtitle current-post))
@@ -112,9 +161,9 @@ If BLOG-ROOT is not set, just return RELATIVE-FILENAME."
 				      (post-date-modified (blog-post-date-modified current-post))
 				      (post-stub (blog-post-stub current-post))
 				      (post-hash (blog-post-hash current-post))
-				      (query-args (list post-nominal-id post-title post-subtitle post-author-nominal-id post-date-published post-date-modified post-stub post-path post-hash)))
+				      (post-src-file (blog-post-src-file-path current-post))
+				      (query-args (list post-nominal-id post-title post-subtitle post-author-nominal-id post-date-published post-date-modified post-stub post-path post-hash post-src-file)))
 				  (append query-args query-args)))))
-	    (sqlite-commit blog-db))
-	(error (sqlite-rollback blog-db)
-	       (signal (car caught-err) (cdr caught-err)))))
-  (sqlite-close blog-db))
+	    (sqlite-commit blog-db))))
+    (sqlite-rollback blog-db)
+    (sqlite-close blog-db))
