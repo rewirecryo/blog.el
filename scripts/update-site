@@ -88,6 +88,12 @@ need to be created or updated."
 				      (query-args (list post-nominal-id post-title post-subtitle post-author-nominal-id post-date-published post-date-modified post-stub post-path post-hash post-src-file)))
 				  (append query-args query-args)))))
 
+(defun delete-post-by-nominal-id (db post-nominal-id)
+  "Delete the post from the database DB whose nominal id is NOMINAL-ID."
+      (progn
+	(sqlite-execute db "DELETE FROM posts WHERE nominal_id = ?;" (list post-nominal-id))
+	(sqlite-execute db "DELETE FROM files WHERE id = (SELECT file FROM posts WHERE nominal_id = ?);" (list post-nominal-id))))
+
 (setq old-tree-id (nth 0 argv))
 (setq new-tree-id (nth 1 argv))
 (unwind-protect
@@ -129,9 +135,7 @@ need to be created or updated."
 	    (let ((post-query-results (sqlite-select blog-db "SELECT nominal_id FROM posts;")))
 	      (dolist (current-row post-query-results)
 		(if (not (assoc (nth 0 current-row) all-posts))
-		    (progn
-		      (sqlite-execute blog-db "DELETE FROM posts WHERE nominal_id = ?;" (list (nth 0 current-row)))
-		      (sqlite-execute blog-db "DELETE FROM files WHERE id = (SELECT file FROM posts WHERE nominal_id = ?);" (list (nth 0 current-row)))))))
+		(delete-post-by-nominal-id blog-db (nth 0 current-row)))))
 
 	    ;; Add to the database, or update, posts that have been created, or changed, respectively
 	    (setq posts-to-update (get-posts-to-update added-or-modified-posts))
