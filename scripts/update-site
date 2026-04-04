@@ -104,7 +104,6 @@ need to be created or updated."
 
       (condition-case caught-err
 	  (progn
-
 	    (let* ((authors-file-object (nth 0 (blog-git-tree-fetch-objects new-tree-id (list authors-file-path))))
 		   (authors-needs-update nil))
 		   (setq authors (blog-load-authors-from-git-object authors-file-object))
