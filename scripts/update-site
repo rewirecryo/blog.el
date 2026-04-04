@@ -66,6 +66,28 @@ need to be created or updated."
 		  (push current-undecided-post final-list))))
 	  final-list))
 
+(defun upsert-post (db post)
+  "UPSERT blogpost POST into database DB."
+  (let ((post-path (concat (blog-post-nominal-id post) ".html")))
+		(sqlite-execute db
+				"INSERT INTO files (path, hash, size) VALUES (?, ?, ?) ON CONFLICT (path) DO UPDATE SET path=?, hash=?, size=?;"
+				(let* ((post-html (blog-post-publish post (file-name-concat blog-export-directory post-path) t))
+				       (query-args (list post-path (blog-hash post-html) (length post-html))))
+				  (append query-args query-args)))
+		(sqlite-execute db
+				"INSERT INTO posts (nominal_id, title, subtitle, author, date_published, date_modified, stub, file, hash, src_file) VALUES (?, ?, ?, (SELECT id FROM authors WHERE nominal_id=?), ?, ?, ?, (SELECT id FROM files WHERE path=?), ?, ?) ON CONFLICT (nominal_id) DO UPDATE SET nominal_id=?, title=?, subtitle=?, author=(SELECT id FROM authors WHERE nominal_id=?), date_published=?, date_modified=?, stub=?, file=(SELECT id FROM files WHERE path=?), hash=?, src_file=?;"
+				(let* ((post-nominal-id (blog-post-nominal-id post))
+				      (post-title (blog-post-title post))
+				      (post-subtitle (blog-post-subtitle post))
+				      (post-author-nominal-id (blog-author-nominal-id (blog-post-author post)))
+				      (post-date-published (blog-post-date-published post))
+				      (post-date-modified (blog-post-date-modified post))
+				      (post-stub (blog-post-stub post))
+				      (post-hash (blog-post-hash post))
+				      (post-src-file (blog-post-src-file-path post))
+				      (query-args (list post-nominal-id post-title post-subtitle post-author-nominal-id post-date-published post-date-modified post-stub post-path post-hash post-src-file)))
+				  (append query-args query-args)))))
+
 (setq old-tree-id (nth 0 argv))
 (setq new-tree-id (nth 1 argv))
 (unwind-protect
@@ -114,25 +136,7 @@ need to be created or updated."
 	    ;; Add to the database, or update, posts that have been created, or changed, respectively
 	    (setq posts-to-update (get-posts-to-update added-or-modified-posts))
 	    (dolist (current-post posts-to-update)
-	      (let ((post-path (concat (blog-post-nominal-id current-post) ".html")))
-		(sqlite-execute blog-db
-				"INSERT INTO files (path, hash, size) VALUES (?, ?, ?) ON CONFLICT (path) DO UPDATE SET path=?, hash=?, size=?;"
-				(let* ((post-html (blog-post-publish current-post (file-name-concat blog-export-directory post-path) t))
-				       (query-args (list post-path (blog-hash post-html) (length post-html))))
-				  (append query-args query-args)))
-		(sqlite-execute blog-db
-				"INSERT INTO posts (nominal_id, title, subtitle, author, date_published, date_modified, stub, file, hash, src_file) VALUES (?, ?, ?, (SELECT id FROM authors WHERE nominal_id=?), ?, ?, ?, (SELECT id FROM files WHERE path=?), ?, ?) ON CONFLICT (nominal_id) DO UPDATE SET nominal_id=?, title=?, subtitle=?, author=(SELECT id FROM authors WHERE nominal_id=?), date_published=?, date_modified=?, stub=?, file=(SELECT id FROM files WHERE path=?), hash=?, src_file=?;"
-				(let* ((post-nominal-id (blog-post-nominal-id current-post))
-				      (post-title (blog-post-title current-post))
-				      (post-subtitle (blog-post-subtitle current-post))
-				      (post-author-nominal-id (blog-author-nominal-id (blog-post-author current-post)))
-				      (post-date-published (blog-post-date-published current-post))
-				      (post-date-modified (blog-post-date-modified current-post))
-				      (post-stub (blog-post-stub current-post))
-				      (post-hash (blog-post-hash current-post))
-				      (post-src-file (blog-post-src-file-path current-post))
-				      (query-args (list post-nominal-id post-title post-subtitle post-author-nominal-id post-date-published post-date-modified post-stub post-path post-hash post-src-file)))
-				  (append query-args query-args)))))
+	      (upsert-post blog-db current-post))
 	    (sqlite-commit blog-db))))
     (sqlite-rollback blog-db)
     (sqlite-close blog-db))
