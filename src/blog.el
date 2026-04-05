@@ -2,4 +2,5 @@
 (require 'blog-database)
 (require 'blog-git)
 (require 'blog-post)
+(require 'blog-errors)
 (provide 'blog)
