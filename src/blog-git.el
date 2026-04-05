@@ -137,7 +137,7 @@ tree TREE that didn't change between the two commits."
 (defun blog-git-parse-ls-tree-line (line)
   "Given a line from 'git ls-tree', LINE, return a blog-git-object that
 holds the line's information."
-  (if (not (string-match "^[01467]+ [a-z]+ [0-9a-f]+\t.+" line))
+  (if (not (string-match "^[0-7]+ [a-z]+ [0-9a-f]+\t.+" line))
       (error "Invalid line"))
   (let ((first-three-elements (string-split line))
 	(object-path (substring line (1+ (string-search "\t" line)) (length line))))
