@@ -1,13 +1,27 @@
 (require 'blog-base)
 (require 'eieio)
 
+(defclass blog-avatar ()
+  ((path :reader blog-avatar-path
+	 :initarg :path)
+   (size :reader blog-avatar-size
+	 :initarg :size)))
+
+(defclass blog-avatar-set ()
+  ((avatars :accessor blog-avatar-set-avatars
+	    :initarg :avatars)
+   (timestamp :accessor blog-avatar-set-timestamp
+	      :initarg :timestamp)))
+
 (defclass blog-author ()
   ((nominal-id :accessor blog-author-nominal-id
 	       :initarg :nominal-id)
    (first-name :accessor blog-author-first-name
 	       :initarg :first-name)
    (last-name :accessor blog-author-last-name
-	      :initarg :last-name)))
+	      :initarg :last-name)
+   (avatar-sets :accessor blog-author-avatar-sets
+		:initarg :avatar-sets)))
 
 (defun blog-fetch-stored-authors-file-hash (db)
   "Query database DB for the hash value for author.json that was last stored."
