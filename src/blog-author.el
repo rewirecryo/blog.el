@@ -48,10 +48,10 @@ thrown."
 	       (let* ((timestamp (gethash "timestamp" current-avatar-set))
 		      (image-array (gethash "images" current-avatar-set))
 		      (image-array-length (length image-array)))
-		 (if (seq-find timestamp found-timestamps)
-		     (signal 'blog-existence-error (list (format-message "Multiple avatar sets for timestamp %d" timestamp))
-			     j-avatar-set
-			     timestamp))
+		 (if (seq-position found-timestamps timestamp)
+		     (signal 'blog-existence-error (list (format-message "Multiple avatar sets for timestamp %d" timestamp)
+							 j-avatar-set
+							 timestamp)))
 		 (if (not (= number-of-sizes image-array-length))
 		     (signal 'blog-length-error (list (format-message "Avatar set array has %d sizes when %d are required" image-array-length number-of-sizes)
 						      j-avatar-set
