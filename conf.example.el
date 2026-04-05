@@ -13,6 +13,9 @@
 ;; Path to the authors file
 (setq authors-file-path "authors.json")
 
+;; Path to the blog configuration file
+(setq blog-conf-file-path "blog.json")
+
 ;; Number of avatars in an avatar set
 (setq avatar-set-size 5)
 
