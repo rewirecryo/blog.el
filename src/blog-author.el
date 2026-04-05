@@ -1,18 +1,6 @@
 (require 'blog-base)
 (require 'eieio)
 
-(defclass blog-avatar ()
-  ((path :reader blog-avatar-path
-	 :initarg :path)
-   (size :reader blog-avatar-size
-	 :initarg :size)))
-
-(defclass blog-avatar-set ()
-  ((avatars :accessor blog-avatar-set-avatars
-	    :initarg :avatars)
-   (timestamp :accessor blog-avatar-set-timestamp
-	      :initarg :timestamp)))
-
 (defclass blog-author ()
   ((nominal-id :accessor blog-author-nominal-id
 	       :initarg :nominal-id)
