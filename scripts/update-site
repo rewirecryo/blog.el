@@ -106,7 +106,7 @@ need to be created or updated."
 	  (progn
 	    (let* ((authors-file-object (nth 0 (blog-git-tree-fetch-objects new-tree-id (list authors-file-path))))
 		   (authors-needs-update nil))
-		   (setq authors (blog-load-authors-from-git-object authors-file-object))
+		   (setq authors (blog-load-authors-from-git-object authors-file-object avatar-set-size))
 		   (setq authors-needs-update (blog-stored-authors-needs-update blog-db authors-file-object))
 		   (if authors-needs-update
 		       (update-authors blog-db authors	(blog-hash (blog-git-object-show authors-file-object)))))

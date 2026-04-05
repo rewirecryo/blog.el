@@ -36,9 +36,38 @@ It's considered out of date in the following cases:
       (if (not (string-equal stored-hash calculated-hash))
 	  calculated-hash)))) ;; Return the calculated hash if it's different from that in the database
 
-(defun blog-load-authors-from-buffer (buffer &optional as-alist)
+(defun blog-load-avatar-sets-from-array (j-avatar-set number-of-sizes)
+  "Given an array from an author JSON object parsed from an author file,
+J-AVATAR-SET, return an alist that could be used as an
+avatar set in a (blog-author) object.
+
+If the avatar set does not have NUMBER-OF-SIZES images, an error will be
+thrown."
+  (let ((found-timestamps ()))
+    (seq-map (lambda (current-avatar-set)
+	       (let* ((timestamp (gethash "timestamp" current-avatar-set))
+		      (image-array (gethash "images" current-avatar-set))
+		      (image-array-length (length image-array)))
+		 (if (seq-find timestamp found-timestamps)
+		     (signal 'blog-existence-error (list (format-message "Multiple avatar sets for timestamp %d" timestamp))
+			     j-avatar-set
+			     timestamp))
+		 (if (not (= number-of-sizes image-array-length))
+		     (signal 'blog-length-error (list (format-message "Avatar set array has %d sizes when %d are required" image-array-length number-of-sizes)
+						      j-avatar-set
+						      image-array-length
+						      number-of-sizes)))
+		 (push timestamp found-timestamps)
+		 (list timestamp
+		 (seq-map-indexed (lambda (image idx)
+			    (list (1+ idx) (if (eq image :null) nil image)))
+			  (gethash "images" current-avatar-set)))))
+	     j-avatar-set)))
+
+(defun blog-load-authors-from-buffer (buffer avatar-set-size &optional as-alist)
     "Parse authors in buffer BUFFER and return a list of author objects
-for each author read from the buffer.
+for each author read from the buffer. Every one of the author's avatar
+sets must have AVATAR-SET-SIZE number of images.
 
 If AS-ALIST is nil, return a list. If AS-ALIST is non-nil, return an
 alist, whose keys are the nominal IDs of their corresponding blog-author
@@ -57,21 +86,22 @@ objects."
 		     (push (make-instance blog-author
 					  :first-name first-name
 					  :last-name last-name
-					  :nominal-id nominal-id)
+					  :nominal-id nominal-id
+					  :avatar-sets (if (gethash "avatars" j-current-author)
+							   (blog-load-avatar-sets-from-array (gethash "avatars" j-current-author) avatar-set-size)
+							 nil))
 			   final-list)))
 		parsed-json)
 	(reverse final-list))))
 
-(defun blog-load-authors-from-git-object (git-object &optional as-alist)
+(defun blog-load-authors-from-git-object (git-object avatar-set-size &optional as-alist)
   "Parse authors in Git object GIT-OBJECT and return a list of author
 objects for each author read from the object.
 
-If AS-ALIST is nil, return a list. If AS-ALIST is non-nil, return an
-alist, whose keys are the nominal IDs of their corresponding blog-author
-objects."
+Other parameters are identical to those of blog-load-authors-from-buffer"
   (with-temp-buffer
     (insert (blog-git-object-show git-object))
-    (blog-load-authors-from-buffer (current-buffer) as-alist)))
+    (blog-load-authors-from-buffer (current-buffer) avatar-set-size as-alist)))
 
 (defun blog-push-authors-to-database (db authors &optional non-atomic)
   "Push list of author objects, AUTHORS, to the database DB.
