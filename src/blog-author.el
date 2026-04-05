@@ -103,14 +103,10 @@ Other parameters are identical to those of blog-load-authors-from-buffer"
     (insert (blog-git-object-show git-object))
     (blog-load-authors-from-buffer (current-buffer) avatar-set-size as-alist)))
 
-(defun blog-push-authors-to-database (db authors &optional non-atomic)
-  "Push list of author objects, AUTHORS, to the database DB.
-
-If NON-ATOMIC is non-nil, the SQL statements will be executed without
-creating a transaction or rolling back failed statements."
+(defun blog-push-authors-to-database (db authors)
+  "Push list of author objects, AUTHORS, to the database DB."
   (condition-case caught-err
-      (progn (if (not non-atomic) (sqlite-transaction db))
-	     (seq-map (lambda (current-author)
+      (progn (seq-map (lambda (current-author)
 			(sqlite-execute db
 					"INSERT INTO authors (nominal_id, first_name, last_name) VALUES (?, ?, ?) ON CONFLICT DO UPDATE SET nominal_id = ?, first_name = ?, last_name = ?;"
 					(list (blog-author-nominal-id current-author)
@@ -118,10 +114,24 @@ creating a transaction or rolling back failed statements."
 					      (blog-author-last-name current-author)
 					      (blog-author-nominal-id current-author)
 					      (blog-author-first-name current-author)
-					      (blog-author-last-name current-author))))
-		      authors)
-	     (if (not non-atomic) sqlite-commit db))
-    (error (if (not non-atomic) (sqlite-rollback db))
-	   (signal (car caught-err) (cdr caught-err)))))
+					      (blog-author-last-name current-author)))
+			(seq-map (lambda (current-avatar-set)
+				   (sqlite-execute db "INSERT INTO avatar_sets (author, taken_time) VALUES ((SELECT id FROM authors WHERE nominal_id=?), ?) ON CONFLICT DO UPDATE SET author=(SELECT id FROM authors WHERE nominal_id=?), taken_time=?;"
+						   (list (blog-author-nominal-id current-author)
+							 (car current-avatar-set)
+							 (blog-author-nominal-id current-author)
+							 (car current-avatar-set)))
+				   (seq-map (lambda (current-avatar-image)
+					      (if (nth 1 current-avatar-image)
+					      (sqlite-execute db "INSERT INTO avatars (avatar_set, screen_size, file_path) VALUES ((SELECT id FROM avatar_sets WHERE taken_time=?), ?, ?) ON CONFLICT DO UPDATE SET avatar_set=(SELECT id FROM avatar_sets WHERE taken_time=?), screen_size=?, file_path=?;"
+							      (list (car current-avatar-set)
+								    (car current-avatar-image)
+								    (nth 1 current-avatar-image)
+								    (car current-avatar-set)
+								    (car current-avatar-image)
+								    (nth 1 current-avatar-image)))))
+					    (nth 1 current-avatar-set)))
+				   (blog-author-avatar-sets current-author)))
+				 authors))))
 
 (provide 'blog-author)

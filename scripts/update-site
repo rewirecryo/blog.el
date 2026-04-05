@@ -30,7 +30,7 @@
   "Update authors list in the database with new author list NEW-AUTHORS."
   (condition-case caught-err
       (progn
-	(blog-push-authors-to-database db new-authors t)
+	(blog-push-authors-to-database db new-authors)
 	(sqlite-execute db
 			"INSERT INTO authors_file_hash_table (id, hash) VALUES (1, ?) ON CONFLICT DO UPDATE SET id = 1, hash = ?;"
 			(list new-authors-file-hash new-authors-file-hash)))))
