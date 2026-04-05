@@ -59,40 +59,40 @@ thrown."
 						      number-of-sizes)))
 		 (push timestamp found-timestamps)
 		 (list timestamp
-		 (seq-map-indexed (lambda (image idx)
-			    (list (1+ idx) (if (eq image :null) nil image)))
-			  (gethash "images" current-avatar-set)))))
+		       (seq-map-indexed (lambda (image idx)
+					  (list (1+ idx) (if (eq image :null) nil image)))
+					(gethash "images" current-avatar-set)))))
 	     j-avatar-set)))
 
 (defun blog-load-authors-from-buffer (buffer avatar-set-size &optional as-alist)
-    "Parse authors in buffer BUFFER and return a list of author objects
+  "Parse authors in buffer BUFFER and return a list of author objects
 for each author read from the buffer. Every one of the author's avatar
 sets must have AVATAR-SET-SIZE number of images.
 
 If AS-ALIST is nil, return a list. If AS-ALIST is non-nil, return an
 alist, whose keys are the nominal IDs of their corresponding blog-author
 objects."
-    (with-current-buffer buffer
-      (let ((parsed-json (json-parse-string (buffer-string)))
-	    (final-list ()))
-	(if (not (vectorp parsed-json))
-	    (error "Root element in author file `%s' is not an array" authors-file-path))
-	(seq-do (lambda (j-current-author)
-		   (let ((first-name (gethash "first_name" j-current-author))
-			 (last-name (gethash "last_name" j-current-author))
-			 (nominal-id (gethash "nominal_id" j-current-author)))
-		     (if as-alist
-			 (push nominal-id final-list))
-		     (push (make-instance blog-author
-					  :first-name first-name
-					  :last-name last-name
-					  :nominal-id nominal-id
-					  :avatar-sets (if (gethash "avatars" j-current-author)
-							   (blog-load-avatar-sets-from-array (gethash "avatars" j-current-author) avatar-set-size)
-							 nil))
-			   final-list)))
-		parsed-json)
-	(reverse final-list))))
+  (with-current-buffer buffer
+    (let ((parsed-json (json-parse-string (buffer-string)))
+	  (final-list ()))
+      (if (not (vectorp parsed-json))
+	  (error "Root element in author file `%s' is not an array" authors-file-path))
+      (seq-do (lambda (j-current-author)
+		(let ((first-name (gethash "first_name" j-current-author))
+		      (last-name (gethash "last_name" j-current-author))
+		      (nominal-id (gethash "nominal_id" j-current-author)))
+		  (if as-alist
+		      (push nominal-id final-list))
+		  (push (make-instance blog-author
+				       :first-name first-name
+				       :last-name last-name
+				       :nominal-id nominal-id
+				       :avatar-sets (if (gethash "avatars" j-current-author)
+							(blog-load-avatar-sets-from-array (gethash "avatars" j-current-author) avatar-set-size)
+						      nil))
+			final-list)))
+	      parsed-json)
+      (reverse final-list))))
 
 (defun blog-load-authors-from-git-object (git-object avatar-set-size &optional as-alist)
   "Parse authors in Git object GIT-OBJECT and return a list of author
@@ -123,15 +123,20 @@ Other parameters are identical to those of blog-load-authors-from-buffer"
 							 (car current-avatar-set)))
 				   (seq-map (lambda (current-avatar-image)
 					      (if (nth 1 current-avatar-image)
-					      (sqlite-execute db "INSERT INTO avatars (avatar_set, screen_size, file_path) VALUES ((SELECT id FROM avatar_sets WHERE taken_time=?), ?, ?) ON CONFLICT DO UPDATE SET avatar_set=(SELECT id FROM avatar_sets WHERE taken_time=?), screen_size=?, file_path=?;"
-							      (list (car current-avatar-set)
-								    (car current-avatar-image)
-								    (nth 1 current-avatar-image)
-								    (car current-avatar-set)
-								    (car current-avatar-image)
-								    (nth 1 current-avatar-image)))))
+						  (sqlite-execute db "INSERT INTO avatars (avatar_set, screen_size, file_path) VALUES ((SELECT id FROM avatar_sets WHERE taken_time=?), ?, ?) ON CONFLICT DO UPDATE SET avatar_set=(SELECT id FROM avatar_sets WHERE taken_time=?), screen_size=?, file_path=?;"
+								  (list (car current-avatar-set)
+									(car current-avatar-image)
+									(nth 1 current-avatar-image)
+									(car current-avatar-set)
+									(car current-avatar-image)
+									(nth 1 current-avatar-image)))
+						(progn
+						  (sqlite-execute db
+								  "DELETE FROM avatars WHERE avatar_set=(SELECT id FROM avatar_sets WHERE taken_time=?) AND screen_size=?;"
+								  (list (car current-avatar-set)
+									(car current-avatar-image))))))
 					    (nth 1 current-avatar-set)))
-				   (blog-author-avatar-sets current-author)))
-				 authors))))
+				 (blog-author-avatar-sets current-author)))
+		      authors))))
 
 (provide 'blog-author)
