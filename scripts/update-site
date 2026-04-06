@@ -30,6 +30,10 @@
   "Update authors list in the database with new author list NEW-AUTHORS."
   (condition-case caught-err
       (progn
+	(blog-delete-missing-authors blog-db new-authors)
+	(seq-map (lambda (current-author)
+		   (blog-author-delete-outdated-avatar-sets current-author db))
+		 new-authors)
 	(blog-push-authors-to-database db new-authors)
 	(sqlite-execute db
 			"INSERT INTO authors_file_hash_table (id, hash) VALUES (1, ?) ON CONFLICT DO UPDATE SET id = 1, hash = ?;"
@@ -113,12 +117,14 @@ need to be created or updated."
 
       (condition-case caught-err
 	  (progn
-	    (let* ((authors-file-object (nth 0 (blog-git-tree-fetch-objects new-tree-id (list authors-file-path))))
+	    (let* ((new-authors-file-object (nth 0 (blog-git-tree-fetch-objects new-tree-id (list authors-file-path))))
+		   (old-authors-file-object (nth 0 (blog-git-tree-fetch-objects old-tree-id (list authors-file-path))))
 		   (authors-needs-update nil))
-		   (setq authors (blog-load-authors-from-git-object authors-file-object avatar-set-size))
-		   (setq authors-needs-update (blog-stored-authors-needs-update blog-db authors-file-object))
+		   (setq authors (blog-load-authors-from-git-object new-authors-file-object avatar-set-size))
+		   (setq authors-needs-update (not (string-equal (blog-hash (blog-git-object-show old-authors-file-object))
+								 (blog-hash (blog-git-object-show new-authors-file-object)))))
 		   (if authors-needs-update
-		       (update-authors blog-db authors	(blog-hash (blog-git-object-show authors-file-object)))))
+		       (update-authors blog-db authors (blog-hash (blog-git-object-show new-authors-file-object)))))
 
 	    (setq new-tree (blog-git-tree-fetch-objects new-tree-id blog-files))
 	    (setq diff-report (blog-git-generate-diff-report old-tree-id new-tree-id blog-files))
@@ -140,6 +146,7 @@ need to be created or updated."
 										       (blog-git-object-path current-object)))
 							  unchanged-objects)))
 	    (setq all-posts (append added-or-modified-posts unchanged-posts))
+
 	    (let ((post-query-results (sqlite-select blog-db "SELECT nominal_id FROM posts;")))
 	      (dolist (current-row post-query-results)
 		(if (not (assoc (nth 0 current-row) all-posts))

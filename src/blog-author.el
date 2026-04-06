@@ -103,6 +103,46 @@ Other parameters are identical to those of blog-load-authors-from-buffer"
     (insert (blog-git-object-show git-object))
     (blog-load-authors-from-buffer (current-buffer) avatar-set-size as-alist)))
 
+(defun blog-delete-avatar-sets-except-for (db author-nominal-id excluded)
+  "Delete all avatar sets for author with nominal ID AUTHOR-NOMINAL-ID from
+database DB except those whose timestamps are in list EXCLUDED."
+  (let* ((ids-string (apply 'concat
+			   (seq-map-indexed (lambda (current-timestamp idx)
+					      (concat (if (not (= idx 0)) ",")
+						      "?"))
+					    excluded))))
+    (sqlite-execute db (concat "DELETE FROM avatars WHERE avatar_set IN (SELECT id FROM avatar_sets WHERE taken_time NOT IN (" ids-string "));") excluded)
+    (sqlite-execute db (concat "DELETE FROM avatar_sets WHERE author=(SELECT id FROM authors WHERE nominal_id=?) AND taken_time NOT IN (" ids-string ");") (append (list author-nominal-id) excluded))))
+
+(cl-defmethod blog-author-delete-outdated-avatar-sets ((author blog-author) db)
+  "Delete all avatar sets in database DB that are associated with author
+AUTHOR, but are not in the AUTHOR object."
+  (blog-delete-avatar-sets-except-for db
+				      (blog-author-nominal-id author)
+				      (seq-map 'car (blog-author-avatar-sets author))))
+
+(defun blog-delete-authors-except-for (db excluded)
+  "Delete all authors from database DB except those whose nominal IDs
+are in list EXCLUDED."
+  (let* ((ids-string (apply 'concat
+			    (seq-map-indexed (lambda (current-author idx)
+					      (concat (if (not (= idx 0)) ",")
+						      "?"))
+					     excluded))))
+    (sqlite-execute db (concat "DELETE FROM avatars WHERE avatar_set IN (SELECT id FROM avatar_sets WHERE author NOT IN (SELECT id FROM authors WHERE nominal_id IN (" ids-string ")));") excluded)
+    (sqlite-execute db (concat "DELETE FROM avatar_sets WHERE author NOT IN (SELECT id FROM authors WHERE nominal_id IN (" ids-string "));") excluded)
+    (sqlite-execute db (concat "DELETE FROM authors WHERE nominal_id NOT IN (" ids-string ");") excluded)))
+
+(defun blog-delete-missing-authors (db authors)
+  "Delete authors from the database DB that aren't included in author list
+AUTHORS."
+  ;; (seq-map (lambda (current-author)
+  ;; 	     (blog-delete-avatar-sets-except-for db
+  ;; 						 (blog-author-nominal-id current-author)
+  ;; 						 (seq-map 'car (blog-author-avatar-sets current-author))))
+  ;; 	   authors)
+  (blog-delete-authors-except-for db (seq-map 'blog-author-nominal-id authors)))
+
 (defun blog-push-authors-to-database (db authors)
   "Push list of author objects, AUTHORS, to the database DB."
   (condition-case caught-err
@@ -130,11 +170,10 @@ Other parameters are identical to those of blog-load-authors-from-buffer"
 									(car current-avatar-set)
 									(car current-avatar-image)
 									(nth 1 current-avatar-image)))
-						(progn
 						  (sqlite-execute db
 								  "DELETE FROM avatars WHERE avatar_set=(SELECT id FROM avatar_sets WHERE taken_time=?) AND screen_size=?;"
 								  (list (car current-avatar-set)
-									(car current-avatar-image))))))
+									(car current-avatar-image)))))
 					    (nth 1 current-avatar-set)))
 				 (blog-author-avatar-sets current-author)))
 		      authors))))
