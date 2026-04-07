@@ -113,8 +113,6 @@ need to be created or updated."
     (progn
       (sqlite-transaction blog-db)
 
-      ;; TODO: Function to make sure that every post's author still exists if (update-authors) was called
-
       (condition-case caught-err
 	  (progn
 	    (let* ((new-authors-file-object (nth 0 (blog-git-tree-fetch-objects new-tree-id (list authors-file-path))))
