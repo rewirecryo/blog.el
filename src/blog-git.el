@@ -155,7 +155,7 @@ will be included in the list."
   (with-temp-buffer (let ((exit-code (call-process "git" nil t nil "ls-tree" "-r" "-z" tree-id))
 			  (final-list ()))
 			  (if (not (= exit-code 0))
-			      (error "git ls-tree failed"))
+			      (signal 'blog-git-error (list "git ls-tree failed" (buffer-string))))
 			  (dolist (line (seq-subseq (split-string (buffer-string) "\0") 0 -1))
 			    (let ((current-object (blog-git-parse-ls-tree-line line)))
 				  (if (or (not valid-paths)
