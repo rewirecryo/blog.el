@@ -112,50 +112,47 @@ need to be created or updated."
 (unwind-protect
     (progn
       (sqlite-transaction blog-db)
+      (let* ((new-authors-file-object (nth 0 (blog-git-tree-fetch-objects new-tree-id (list authors-file-path))))
+	     (old-authors-file-object (nth 0 (blog-git-tree-fetch-objects old-tree-id (list authors-file-path))))
+	     (authors-needs-update nil))
+	(setq authors (blog-load-authors-from-git-object new-authors-file-object avatar-set-size))
+	(setq authors-needs-update (if old-authors-file-object
+				       (not (string-equal (blog-hash (blog-git-object-show old-authors-file-object))
+							  (blog-hash (blog-git-object-show new-authors-file-object))))
+				     t))
+	(if authors-needs-update
+	    (update-authors blog-db authors (blog-hash (blog-git-object-show new-authors-file-object)))))
 
-      (condition-case caught-err
-	  (progn
-	    (let* ((new-authors-file-object (nth 0 (blog-git-tree-fetch-objects new-tree-id (list authors-file-path))))
-		   (old-authors-file-object (nth 0 (blog-git-tree-fetch-objects old-tree-id (list authors-file-path))))
-		   (authors-needs-update nil))
-		   (setq authors (blog-load-authors-from-git-object new-authors-file-object avatar-set-size))
-		   (setq authors-needs-update (if old-authors-file-object
-						  (not (string-equal (blog-hash (blog-git-object-show old-authors-file-object))
-								     (blog-hash (blog-git-object-show new-authors-file-object))))
-						t))
-		   (if authors-needs-update
-		       (update-authors blog-db authors (blog-hash (blog-git-object-show new-authors-file-object)))))
+      (setq new-tree (blog-git-tree-fetch-objects new-tree-id blog-files))
+      (setq diff-report (blog-git-generate-diff-report old-tree-id new-tree-id blog-files))
 
-	    (setq new-tree (blog-git-tree-fetch-objects new-tree-id blog-files))
-	    (setq diff-report (blog-git-generate-diff-report old-tree-id new-tree-id blog-files))
+      ;; Delete posts associated with deleted files
+      (setq diff-report-files (get-files-from-diff-report diff-report))
+      (dolist (current-deleted-file (plist-get diff-report-files :deleted))
+	(sqlite-execute blog-db "DELETE FROM posts WHERE src_file=?;" (list current-deleted-file))
+	(sqlite-execute blog-db "DELETE FROM files WHERE id=(SELECT file FROM posts WHERE src_file=?);" (list current-deleted-file)))
 
-	    ;; Delete posts associated with deleted files
-	    (setq diff-report-files (get-files-from-diff-report diff-report))
-	    (dolist (current-deleted-file (plist-get diff-report-files :deleted))
-	      (sqlite-execute blog-db "DELETE FROM posts WHERE src_file=?;" (list current-deleted-file))
-	      (sqlite-execute blog-db "DELETE FROM files WHERE id=(SELECT file FROM posts WHERE src_file=?);" (list current-deleted-file)))
+      ;; Delete all posts that are in the database, but aren't in any tracked files
+      (setq added-or-modified-posts (get-added-or-modified-posts diff-report authors))
+      (setq unchanged-objects (blog-git-diff-report-fetch-unchanged-files diff-report new-tree))
+      (setq unchanged-posts (apply 'append (seq-map (lambda (current-object)
+						      (blog-fetch-posts-from-git-object current-object
+											authors
+											t
+											added-or-modified-posts  ; We can forgo checking other unchanged files; we'll assume they don't contain any duplicates
+											(blog-git-object-path current-object)))
+						    unchanged-objects)))
+      (setq all-posts (append added-or-modified-posts unchanged-posts))
 
-	    ;; Delete all posts that are in the database, but aren't in any tracked files
-	    (setq added-or-modified-posts (get-added-or-modified-posts diff-report authors))
-	    (setq unchanged-objects (blog-git-diff-report-fetch-unchanged-files diff-report new-tree))
-	    (setq unchanged-posts (apply 'append (seq-map (lambda (current-object)
-						     (blog-fetch-posts-from-git-object current-object
-										       authors
-										       t
-										       added-or-modified-posts  ; We can forgo checking other unchanged files; we'll assume they don't contain any duplicates
-										       (blog-git-object-path current-object)))
-							  unchanged-objects)))
-	    (setq all-posts (append added-or-modified-posts unchanged-posts))
+      (let ((post-query-results (sqlite-select blog-db "SELECT nominal_id FROM posts;")))
+	(dolist (current-row post-query-results)
+	  (if (not (assoc (nth 0 current-row) all-posts))
+	      (delete-post-by-nominal-id blog-db (nth 0 current-row)))))
 
-	    (let ((post-query-results (sqlite-select blog-db "SELECT nominal_id FROM posts;")))
-	      (dolist (current-row post-query-results)
-		(if (not (assoc (nth 0 current-row) all-posts))
-		(delete-post-by-nominal-id blog-db (nth 0 current-row)))))
-
-	    ;; Add to the database, or update, posts that have been created, or changed, respectively
-	    (setq posts-to-update (get-posts-to-update added-or-modified-posts))
-	    (dolist (current-post posts-to-update)
-	      (upsert-post blog-db current-post))
-	    (sqlite-commit blog-db))))
-    (sqlite-rollback blog-db)
-    (sqlite-close blog-db))
+      ;; Add to the database, or update, posts that have been created, or changed, respectively
+      (setq posts-to-update (get-posts-to-update added-or-modified-posts))
+      (dolist (current-post posts-to-update)
+	(upsert-post blog-db current-post))
+      (sqlite-commit blog-db))
+  (sqlite-rollback blog-db)
+  (sqlite-close blog-db))
