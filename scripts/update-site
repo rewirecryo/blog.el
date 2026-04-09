@@ -119,8 +119,10 @@ need to be created or updated."
 		   (old-authors-file-object (nth 0 (blog-git-tree-fetch-objects old-tree-id (list authors-file-path))))
 		   (authors-needs-update nil))
 		   (setq authors (blog-load-authors-from-git-object new-authors-file-object avatar-set-size))
-		   (setq authors-needs-update (not (string-equal (blog-hash (blog-git-object-show old-authors-file-object))
-								 (blog-hash (blog-git-object-show new-authors-file-object)))))
+		   (setq authors-needs-update (if old-authors-file-object
+						  (not (string-equal (blog-hash (blog-git-object-show old-authors-file-object))
+								     (blog-hash (blog-git-object-show new-authors-file-object))))
+						t))
 		   (if authors-needs-update
 		       (update-authors blog-db authors (blog-hash (blog-git-object-show new-authors-file-object)))))
 
