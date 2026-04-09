@@ -13,8 +13,6 @@
 (if (not (sqlite-pragma blog-db "foreign_keys = ON;"))
     (error "Could not set 'foreign_keys = ON' pragma"))
 
-
-
 (defun update-authors (db new-authors new-authors-file-hash)
   "Update authors list in the database with new author list NEW-AUTHORS."
   (condition-case caught-err
@@ -97,7 +95,6 @@ need to be created or updated."
       (progn
 	(sqlite-execute db "DELETE FROM posts WHERE nominal_id = ?;" (list post-nominal-id))
 	(sqlite-execute db "DELETE FROM files WHERE id = (SELECT file FROM posts WHERE nominal_id = ?);" (list post-nominal-id))))
-
 
 (setq old-tree-id (nth 0 argv))
 (setq new-tree-id (nth 1 argv))
