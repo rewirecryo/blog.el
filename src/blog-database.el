@@ -1,3 +1,4 @@
+(setq blog-max-screen-size-name-length 32)
 (setq blog-max-nominal-id-length 64)
 (setq blog-max-first-name-length 40)
 (setq blog-max-last-name-length 40)
@@ -15,7 +16,7 @@ largest)."
       (condition-case caught-err
 	  (progn
 	    (sqlite-transaction conn)
-	    (sqlite-execute conn "CREATE TABLE IF NOT EXISTS screen_sizes (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, CHECK(LENGTH(name) BETWEEN 1 AND 32));")
+	    (sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS screen_sizes (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, CHECK(LENGTH(name) BETWEEN 1 AND %d));" blog-max-screen-size-name-length))
 	    (sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS authors (id INTEGER PRIMARY KEY, nominal_id TEXT NOT NULL UNIQUE, first_name TEXT NOT NULL, last_name TEXT NOT NULL, CHECK(LENGTH(nominal_id) BETWEEN 1 AND %d), CHECK(LENGTH(first_name) <= %d), CHECK(LENGTH(last_name) BETWEEN 1 AND %d), UNIQUE(first_name,last_name));" blog-max-nominal-id-length blog-max-first-name-length blog-max-last-name-length))
 	    (sqlite-execute conn "CREATE TABLE IF NOT EXISTS avatar_sets (id INTEGER PRIMARY KEY, author INTEGER NOT NULL, taken_time INTEGER NOT NULL, UNIQUE(author, taken_time), FOREIGN KEY(author) REFERENCES authors(id));")
 	    (sqlite-execute conn (format "CREATE TABLE IF NOT EXISTS avatars (file_path TEXT NOT NULL, avatar_set INTEGER NOT NULL, screen_size INTEGER NOT NULL, CHECK(LENGTH(file_path) BETWEEN 1 AND %d), UNIQUE(avatar_set, screen_size), FOREIGN KEY(avatar_set) REFERENCES avatar_sets(id), FOREIGN KEY(screen_size) REFERENCES screen_sizes(id));" blog-max-file-path-length))
