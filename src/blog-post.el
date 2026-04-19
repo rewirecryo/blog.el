@@ -125,21 +125,18 @@ associated, if any."
       (if (not (string-equal mode-name "Org"))
 	  (error "Buffer is not an Org buffer") buffer)
       (save-excursion
-	(let ((last-point 0))
 	  (goto-char 1)
-	  (while (not (= (point) last-point))
-	    (if (blog-post-at-point-p)
-		(progn
-		  (let* ((current-post (blog-parse-post-at-point authors-list "" nil nil src-file-path))
-			 (current-post-nominal-id (blog-post-nominal-id current-post)))
-		    (if as-alist
-			(progn (if (assoc current-post-nominal-id (append final-list existing-posts))
-				   (error "Blog post `%s' was found twice" current-post-nominal-id)
-				 (push (list current-post-nominal-id current-post) final-list)))
-		      (push current-post final-list)))))
-	    (setq last-point (point))
-	    (org-forward-heading-same-level 1))))
-      (reverse final-list))))
+	  (org-map-entries (lambda ()
+			     (if (blog-post-at-point-p)
+				 (progn
+				   (let* ((current-post (blog-parse-post-at-point authors-list "" nil nil src-file-path))
+					  (current-post-nominal-id (blog-post-nominal-id current-post)))
+				     (if as-alist
+					 (progn (if (assoc current-post-nominal-id (append final-list existing-posts))
+						    (error "Blog post `%s' was found twice" current-post-nominal-id)
+						  (push (list current-post-nominal-id current-post) final-list)))
+				       (push current-post final-list))))))))
+	(reverse final-list))))
 
 (defun blog-fetch-posts-from-git-object (git-object authors-list &optional as-alist existing-posts src-file-path)
   "Read the posts held in a GIT-OBJECT.
