@@ -26,6 +26,11 @@
 			  (error "cat-file failed" (buffer-string))
 		      (buffer-string)))))
 
+(defun blog-git-tree-id-or-nil (tree-id)
+  "Return TREE-ID, unless TREE-ID is 0{4,40}, in which case, nil is returned."
+  (if (not (string-match "^0\\{4,40\\}$" tree-id))
+      tree-id))
+
 (defun blog-parse-git-diff-report-line (line &optional ignore-colon)
   "Given a segment from 'git diff-tree -r', LINE, return a blog-git-diff-report-record.
 
@@ -84,7 +89,7 @@ will expect LINE to NOT begin with ':'."
 						 ((= action-char ?M) (setq action-symbol 'modified)))
 					   action-symbol))))
 
-(defun blog-git-generate-diff-report (before-commit after-commit &optional files-to-check)
+(defun blog-git-generate-diff-report (before-commit after-commit &optional files-to-check allow-empty-tree)
   "Call 'git diff-tree -r --no-renames -z' to learn what files in
 FILES-TO-CHECK have changed between commits BEFORE-COMMIT and
 AFTER-COMMIT.
@@ -94,11 +99,29 @@ Return an alist of three lists:
 
   - :modified Changed files
 
-  - :deleted Deleted files"
+  - :deleted Deleted files
+
+If ALLOW-EMPTY-TREE is non-nil, treat a BEFORE-COMMIT that's nil as if
+it's empty. In effect, it results in all objects in AFTER-COMMIT to be
+put in the :added list."
+  (if (and (not before-commit)
+	   allow-empty-tree)
+      (list :added
+	    (seq-map (lambda (current-object)
+			 (make-instance blog-git-diff-report-record
+					:old (make-instance blog-git-object
+							    :hash "0000000000000000000000000000000000000000"
+							    :mode "000000"
+							    :path (blog-git-object-path current-object))
+					:new current-object
+					:action 'added))
+		     (blog-git-tree-fetch-objects after-commit))
+	    :modified ()
+	    :deleted ())
   (let ((added-files ()) (modified-files ()) (deleted-files ()) (cmd-output nil)
 	(diff-line nil) (exit-status nil) (cmd nil))
     (with-temp-buffer
-      (setq cmd (append (read "(call-process)") (list "git" nil (current-buffer) nil "diff-tree" "-r" "-z" "--no-renames" before-commit after-commit)))
+      (setq cmd (append (read "(call-process)") (list "git" nil (current-buffer) nil "diff-tree" "--full-index" "-r" "-z" "--no-renames" before-commit after-commit)))
       (setq exit-status (eval cmd))
       (if (not (= 0 exit-status))
 	  (signal (error "git diff-tree command failed.") cmd (buffer-string)))
@@ -120,7 +143,7 @@ Return an alist of three lists:
 		    (cond ((eq action 'added) (setq added-files (append added-files (list diff-record))))
 			  ((eq action 'modified) (setq modified-files (append modified-files (list diff-record))))
 			  ((eq action 'deleted) (setq deleted-files (append deleted-files (list diff-record))))))))))
-      (list :added added-files :modified modified-files :deleted deleted-files))))
+      (list :added added-files :modified modified-files :deleted deleted-files)))))
 
 (defun blog-git-diff-report-fetch-unchanged-files (diff-report tree)
   "Given a diff report DIFF-REPORT, return a list of the files in the
@@ -152,16 +175,17 @@ tree's objects.
 
 If VALID-PATHS is non-nil, only objects whose paths exist in VALID-PATHS
 will be included in the list."
-  (with-temp-buffer (let ((exit-code (call-process "git" nil t nil "ls-tree" "-r" "-z" tree-id))
-			  (final-list ()))
+  (if tree-id
+      (with-temp-buffer (let ((exit-code (call-process "git" nil t nil "ls-tree" "-r" "-z" tree-id))
+			      (final-list ()))
 			  (if (not (= exit-code 0))
 			      (signal 'blog-git-error (list "git ls-tree failed" (buffer-string))))
 			  (dolist (line (seq-subseq (split-string (buffer-string) "\0") 0 -1))
 			    (let ((current-object (blog-git-parse-ls-tree-line line)))
-				  (if (or (not valid-paths)
-					  (seq-contains-p valid-paths
-							  (blog-git-object-path current-object)))
-				      (push current-object final-list))))
-			  final-list)))
+			      (if (or (not valid-paths)
+				      (seq-contains-p valid-paths
+						      (blog-git-object-path current-object)))
+				  (push current-object final-list))))
+			  final-list))))
 
 (provide 'blog-git)

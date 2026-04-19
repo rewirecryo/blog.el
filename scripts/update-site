@@ -111,7 +111,7 @@ need to be created or updated."
     (progn
       (sqlite-transaction blog-db)
       (let* ((new-authors-file-object (nth 0 (blog-git-tree-fetch-objects new-tree-id (list authors-file-path))))
-	     (old-authors-file-object (nth 0 (blog-git-tree-fetch-objects old-tree-id (list authors-file-path))))
+	     (old-authors-file-object (nth 0 (blog-git-tree-fetch-objects (blog-git-tree-id-or-nil old-tree-id) (list authors-file-path))))
 	     (authors-needs-update nil))
 	(setq authors (blog-load-authors-from-git-object new-authors-file-object avatar-set-size))
 	(setq authors-needs-update (if old-authors-file-object
@@ -122,7 +122,7 @@ need to be created or updated."
 	    (update-authors blog-db authors (blog-hash (blog-git-object-show new-authors-file-object)))))
 
       (setq new-tree (blog-git-tree-fetch-objects new-tree-id blog-files))
-      (setq diff-report (blog-git-generate-diff-report old-tree-id new-tree-id blog-files))
+      (setq diff-report (blog-git-generate-diff-report (blog-git-tree-id-or-nil old-tree-id) new-tree-id blog-files t))
 
       ;; Delete posts associated with deleted files
       (setq diff-report-files (get-files-from-diff-report diff-report))
