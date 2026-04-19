@@ -95,7 +95,7 @@ relative to BLOG-ROOT."
 				      nil))
 		 :hash (blog-hash (save-excursion (org-back-to-heading)
 						  (buffer-substring (point)
-								    (org-element-contents-end (org-element-at-point)))))
+								    (org-element-property :end (org-element-at-point)))))
 		 :content (save-excursion (let ((begin nil) (end nil))
 					    (org-back-to-heading)
 					    (org-end-of-meta-data t)
