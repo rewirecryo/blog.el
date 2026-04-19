@@ -8,11 +8,6 @@
 (load-file "conf.el")
 (load "blog")
 
-;; This connection object will be used to refer to the database from now on
-(setq blog-db (sqlite-open database-path))
-(if (not (sqlite-pragma blog-db "foreign_keys = ON;"))
-    (error "Could not set 'foreign_keys = ON' pragma"))
-
 (defun update-authors (db new-authors new-authors-file-hash)
   "Update authors list in the database with new author list NEW-AUTHORS."
   (condition-case caught-err
@@ -99,13 +94,20 @@ need to be created or updated."
 (setq old-tree-id (nth 0 argv))
 (setq new-tree-id (nth 1 argv))
 
-(if (not (file-exists-p database-path))
+(setq full-database-path (file-name-concat blog-root database-path))
+
+(if (not (file-exists-p full-database-path))
     (progn
       (let* ((j-blog-conf (json-parse-string (blog-git-object-show (nth 0 (blog-git-tree-fetch-objects new-tree-id (list blog-conf-file-path))))))
 	     (screen-sizes (gethash "screen_sizes" j-blog-conf)))
 	(if screen-sizes
-	    (blog-create-database database-path (seq-map 'eval screen-sizes))
+	    (blog-create-database full-database-path (seq-map 'eval screen-sizes))
 	  (signal 'blog-configuration-error (list (format-message "screen_sizes was not defined in blog configuration file `%s'" blog-conf-file-path)))))))
+
+;; This connection object will be used to refer to the database from now on
+(setq blog-db (sqlite-open full-database-path))
+(if (not (sqlite-pragma blog-db "foreign_keys = ON;"))
+    (error "Could not set 'foreign_keys = ON' pragma"))
 
 (unwind-protect
     (progn
