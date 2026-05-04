@@ -3,4 +3,5 @@
 (define-error 'blog-length-error "Length error" 'blog-error)
 (define-error 'blog-configuration-error "Configuration error" 'blog-error)
 (define-error 'blog-git-error "blog.el Git error" 'blog-error)
+(define-error 'blog-parse-error "blog.el Parse error" 'blog-error)
 (provide 'blog-errors)
