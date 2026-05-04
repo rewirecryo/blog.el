@@ -1,3 +1,5 @@
+(require 'blog-errors)
+
 (defclass blog-git-object ()
   ((mode :initarg :mode
 	 :accessor blog-git-object-mode)
@@ -43,7 +45,7 @@ will expect LINE to NOT begin with ':'."
       (progn
 	;; If the line doesn't start with ':', throw an error
 	(if (not (= (string-to-char line) ?:))
-	    (signal 'blog-parse-error "String is not a readable line from 'git diff-tree'" line))
+	    (signal 'blog-parse-error (list "String is not a readable line from 'git diff-tree'" line)))
 
 	;; If the line starts with ':', cut off the initial ':' before
 	;; further processing
