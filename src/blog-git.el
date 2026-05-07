@@ -147,9 +147,10 @@ put in the :added list."
 			  ((eq action 'deleted) (setq deleted-files (append deleted-files (list diff-record))))))))))
       (list :added added-files :modified modified-files :deleted deleted-files)))))
 
-(defun blog-git-diff-report-fetch-unchanged-files (diff-report tree)
+(defun blog-git-diff-report-fetch-unchanged-files (diff-report tree-objects)
   "Given a diff report DIFF-REPORT, return a list of the files in the
-tree TREE that didn't change between the two commits."
+list of git objects TREE-OBJECTS that didn't change between the two
+commits."
   (seq-filter (lambda (current-object)
 		(not (seq-find (lambda (current-report-record)
 				 (string-equal (blog-git-object-path current-object)
@@ -157,7 +158,7 @@ tree TREE that didn't change between the two commits."
 			       (append (plist-get diff-report :added)
 				       (plist-get diff-report :modified)
 				       (plist-get diff-report :deleted)))))
-		     tree))
+		     tree-objects))
 
 (defun blog-git-parse-ls-tree-line (line)
   "Given a line from 'git ls-tree', LINE, return a blog-git-object that
