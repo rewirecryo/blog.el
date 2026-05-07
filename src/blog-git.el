@@ -174,7 +174,8 @@ holds the line's information."
 
 (defun blog-git-tree-fetch-objects (tree-id &optional valid-paths)
   "Given a Git tree identified by TREE-ID, return a list of all of that
-tree's objects.
+tree's objects. TREE-ID can be nil (since the tree might be that of
+commit 000000), in which case an empty list is returned.
 
 If VALID-PATHS is non-nil, only objects whose paths exist in VALID-PATHS
 will be included in the list."
@@ -189,6 +190,7 @@ will be included in the list."
 				      (seq-contains-p valid-paths
 						      (blog-git-object-path current-object)))
 				  (push current-object final-list))))
-			  final-list))))
+			  final-list))
+    ()))
 
 (provide 'blog-git)
