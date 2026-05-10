@@ -51,7 +51,7 @@ objects."
     (let ((parsed-json (json-parse-string (buffer-string)))
 	  (final-list ()))
       (if (not (vectorp parsed-json))
-	  (error "Root element in author file `%s' is not an array" authors-file-path))
+	  (signal 'blog-error (format "Root element in author file `%s' is not an array" authors-file-path)))
       (seq-do (lambda (j-current-author)
 		(let ((first-name (gethash "first_name" j-current-author))
 		      (last-name (gethash "last_name" j-current-author))
