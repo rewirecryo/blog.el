@@ -39,13 +39,13 @@ thrown."
 					(gethash "images" current-avatar-set)))))
 	     j-avatar-set)))
 
-(defun blog-load-authors-from-buffer (buffer avatar-set-size &optional as-alist)
+(defun blog-load-authors-from-buffer (buffer avatar-set-size &optional as-plist)
   "Parse authors in buffer BUFFER and return a list of author objects
 for each author read from the buffer. Every one of the author's avatar
 sets must have AVATAR-SET-SIZE number of images.
 
-If AS-ALIST is nil, return a list. If AS-ALIST is non-nil, return an
-alist, whose keys are the nominal IDs of their corresponding blog-author
+If AS-PLIST is nil, return a list. If AS-PLIST is non-nil, return an
+plist, whose keys are the nominal IDs of their corresponding blog-author
 objects."
   (with-current-buffer buffer
     (let ((parsed-json (json-parse-string (buffer-string)))
@@ -56,7 +56,7 @@ objects."
 		(let ((first-name (gethash "first_name" j-current-author))
 		      (last-name (gethash "last_name" j-current-author))
 		      (nominal-id (gethash "nominal_id" j-current-author)))
-		  (if as-alist
+		  (if as-plist
 		      (push nominal-id final-list))
 		  (push (make-instance blog-author
 				       :first-name first-name
@@ -69,14 +69,14 @@ objects."
 	      parsed-json)
       (reverse final-list))))
 
-(defun blog-load-authors-from-git-object (git-object avatar-set-size &optional as-alist)
+(defun blog-load-authors-from-git-object (git-object avatar-set-size &optional as-plist)
   "Parse authors in Git object GIT-OBJECT and return a list of author
 objects for each author read from the object.
 
 Other parameters are identical to those of blog-load-authors-from-buffer"
   (with-temp-buffer
     (insert (blog-git-object-show git-object))
-    (blog-load-authors-from-buffer (current-buffer) avatar-set-size as-alist)))
+    (blog-load-authors-from-buffer (current-buffer) avatar-set-size as-plist)))
 
 (defun blog-delete-avatar-sets-except-for (db author-nominal-id excluded)
   "Delete all avatar sets for author with nominal ID AUTHOR-NOMINAL-ID from
