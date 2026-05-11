@@ -12,9 +12,9 @@
 		:initarg :avatar-sets)))
 
 (defun blog-load-avatar-sets-from-array (j-avatar-set number-of-sizes)
-  "Given an array from an author JSON object parsed from an author file,
-J-AVATAR-SET, return an alist that could be used as an
-avatar set in a (blog-author) object.
+  "Given an array from an author JSON object (parsed from an author file),
+J-AVATAR-SET, return an alist that can be used as a list of avatar sets
+in a (blog-author) object.
 
 If the avatar set does not have NUMBER-OF-SIZES images, an error will be
 thrown."
