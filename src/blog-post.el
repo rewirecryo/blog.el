@@ -161,7 +161,7 @@ in (blog-read-posts-from-buffer)."
 						     (blog-git-object-path git-object)
 						   src-file-path))))
 
-(cl-defmethod blog-post-publish ((post blog-post) (output-file string) &optional (overwrite bool))
+(cl-defmethod blog-post-publish ((post blog-post) (output-file string) &optional overwrite)
   "Publish a blog post, POST to a file at OUTPUT-FILE.
 
 If OVERWRITE is non-nil, an exception will be thrown if the file already
