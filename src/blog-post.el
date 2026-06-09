@@ -1,3 +1,6 @@
+(require 'org)
+(require 'org-element)
+
 (setq-default blog-post-tag "blog_post")
 
 (defclass blog-post ()
