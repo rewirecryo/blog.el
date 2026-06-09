@@ -112,10 +112,6 @@ relative to BLOG-ROOT."
 					    (setq end (point))
 					    (buffer-substring-no-properties begin end)))))
 
-(cl-defmethod blog-post-calculate-hash (post blog-post)
-  "Given a blog-post, POST, calculate the hash of its contents."
-  (blog-hash post))
-
 (defun blog-read-posts-from-buffer (buffer authors-list &optional as-alist existing-posts src-file-path)
   "Return a list of all posts in a given BUFFER, with the authors being
 stored in AUTHORS-LIST.
