@@ -1,5 +1,6 @@
 (require 'org)
 (require 'org-element)
+(require 'blog-author)
 
 (setq-default blog-post-tag "blog_post")
 
