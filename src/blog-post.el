@@ -29,11 +29,11 @@
     (timestamp-string)
   "Given a timestamp string in format that's compatible with Org Mode,
 return a Unix timestamp."
-  (string-to-number
-   (org-timestamp-format
+  (time-convert
+   (org-timestamp-to-time
     (org-timestamp-from-string
-     timestamp-string)
-    "%s")))
+     timestamp-string))
+   'integer))
 
 (defun blog-get-stub-at-point
     ()
