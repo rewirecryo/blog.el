@@ -60,14 +60,12 @@ properly-formatted argument, but won't change the returned value result."
     nil))
 
 (defun blog-parse-post-at-point
-    (authors-list file-path &optional ignore-check blog-root src-file-path)
+    (authors-list &optional ignore-check blog-root src-file-path)
   "Parse the Org entry at (point), and return a (blog-post) object.
 
 A post needs a valid author, which will be chosen from AUTHORS-LIST,
 which is a list of (blog-author) objects. The last object with the
 matching nominal ID will be used.
-
-FILE-PATH is the desired value of the 'file' slot.
 
 Unless IGNORE-CHECK is t, an error will be thrown if the org entry
 doesn't meet the requirements of blog-post-at-point-p.
@@ -139,7 +137,7 @@ associated, if any."
 	  (org-map-entries (lambda ()
 			     (if (blog-post-at-point-p)
 				 (progn
-				   (let* ((current-post (blog-parse-post-at-point authors-list "" nil nil src-file-path))
+				   (let* ((current-post (blog-parse-post-at-point authors-list nil nil src-file-path))
 					  (current-post-nominal-id (blog-post-nominal-id current-post)))
 				     (if as-alist
 					 (progn (if (assoc current-post-nominal-id (append final-list existing-posts))
