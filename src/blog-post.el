@@ -1,6 +1,7 @@
 (require 'org)
 (require 'org-element)
 (require 'blog-author)
+(require 'blog-errors)
 
 (setq-default blog-post-tag "blog_post")
 
@@ -137,7 +138,7 @@ associated, if any."
 					  (current-post-nominal-id (blog-post-nominal-id current-post)))
 				     (if as-alist
 					 (progn (if (assoc current-post-nominal-id (append final-list existing-posts))
-						    (error "Blog post `%s' was found twice" current-post-nominal-id)
+						    (signal 'blog-existence-error (format "Blog post `%s' was found twice" current-post-nominal-id))
 						  (push (list current-post-nominal-id current-post) final-list)))
 				       (push current-post final-list))))))))
 	(reverse final-list))))
@@ -176,5 +177,5 @@ be returned."
 			  (progn (with-temp-file output-file
 				   (insert post-html)
 				   post-html))
-			(error "File `%s' already exists" output-file)))))
+			(signal 'blog-existence-error (format "File `%s' already exists" output-file))))))
 (provide 'blog-post)
