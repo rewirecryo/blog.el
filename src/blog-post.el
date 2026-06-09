@@ -27,8 +27,14 @@
 
 (defun blog-org-timestamp-string-to-unix-timestamp
     (timestamp-string)
-  "Given a timestamp string in format that's compatible with Org Mode,
-return a Unix timestamp."
+  "Given a timestamp string, TIMESTAMP-STRING, in format that's compatible
+with Org Mode, return a Unix timestamp.
+
+NOTE: This function does not understand timezones. TIMESTAMP-STRING will
+be understood to be in whatever timezone Emacs's time functions are
+using, as explained in 43.6 of the GNU Elisp Reference Manual. A
+TIMESTAMP-STRING value with a timezone will be accepted as a
+properly-formatted argument, but won't change the returned value result."
   (time-convert
    (org-timestamp-to-time
     (org-timestamp-from-string
