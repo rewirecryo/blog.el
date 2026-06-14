@@ -68,7 +68,7 @@ need to be created or updated."
   (let ((post-path (concat (blog-post-nominal-id post) ".html")))
 		(sqlite-execute db
 				"INSERT INTO files (path, hash, size) VALUES (?, ?, ?) ON CONFLICT (path) DO UPDATE SET path=?, hash=?, size=?;"
-				(let* ((post-html (blog-post-publish post (file-name-concat blog-export-directory post-path) t))
+				(let* ((post-html (blog-post-publish post (file-name-concat (if (not (file-name-absolute-p blog-export-directory)) blog-root) blog-export-directory post-path) t))
 				       (query-args (list post-path (blog-hash post-html) (length post-html))))
 				  (append query-args query-args)))
 		(sqlite-execute db
