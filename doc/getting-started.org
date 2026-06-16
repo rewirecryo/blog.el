@@ -1,0 +1,171 @@
+#+TITLE: Getting Started
+
+** Creating the Git repository
+The Git repository is at the heart of a GEO blog, because it's
+where all the files that you'll actually need to edit, are.
+
+*** Required files
+GEO requires that two files be present in any commit with which it
+interacts:
+
+- =blog.json= :: This file contains metadata about the blog. Being
+  part of the commit, its settings are stored /with/ each commit, and
+  pertain to the commit to which it belongs.
+
+  If you revert the blog's state, the settings in this file will also
+  be reverted.
+
+- =authors.json= :: This file contains data about every author, and
+  their profile picture.
+
+Unlike =conf.el=, *these files must be tracked by Git* for the
+=update-site= script to work.
+
+** conf.el
+=conf.el= file is the main configuration file of =update-script=.
+Importantly, *it should not be tracked by Git*.
+
+It's loaded by =update-site= before everything other than the
+argument-checking code. It contains Elisp variables that act as
+settings for =update-script=:
+
+  - =blog-files= ::  (list) *Required.* The files that will be scanned
+    for posts.
+
+  - =blog-root= :: (string) *Required.* Directory under which the the
+    generated files will be placed by default.
+
+  - =blog-export-directory= :: (string) *Required.* Directory under
+    which generated blog post HTML files will be placed.
+
+  - =database-path= :: (string) *Required.* Path to the generated
+    database.
+
+  - =authors-file-path= :: (string) *Required.* Path to the authors
+    file.
+
+  - =blog-conf-file-path= :: (string) *Required.* Path to JSON config
+    file.
+
+  - =avatar-set-size= :: (int) *Required.* Number of screen sizes.
+    
+** Blog JSON config file (=blog.json= by default)
+The root element of the JSON config file is an object. Within it are
+settings that configure a particular commit:
+
+  - =screen-sizes=: (array[string]) Names of each screen size
+
+** Authors file (=authors.json= by default)
+The root element of the authors file is an array. Within that array,
+are objects, each of which represents one author.
+
+*** Author object
+- =nominal_id=: (string) A unique identifier for this author
+
+- =first-name=: (string) Author's first name
+
+- =last-name=: (string) Author's last name
+
+- =avatars=: (array[object]) Every avatar associated with this author
+
+**** Avatar object
+- =timestamp=: (int) A unique timestamp associated with this avatar
+
+- =images=: (array[string]) Paths to every image in this avatar's
+  image set, one for each screen size. These are ordered, from
+  smallest size, to largest.
+
+  Paths are relative to the blog's root (=blog-root= in =conf.el=).
+
+  The number of images in the set must match the number of screen
+  sizes specified in the Git tree's =blog.json= file. If you don't
+  have an image for a given screen size, you can use a =null= value in
+  place of that image's path.
+
+** Writing your first post
+Starting a post isn't much more difficult than creating any other Org
+entry. To start, create a heading in any of the files included in your
+=blog-files= list in =blog.el=.
+
+*** Blog post tag
+By default, blog.el doesn't read any Org entry as a blog post. (That's
+to prevent any drafts from being published before they're ready.) To
+mark an entry as a blog post, it needs to have *blog post tag*. The
+name of this tag is set in the =blog-post-tag= Elisp variable, and can
+be changed.
+
+By default, its value is =blog_post=. So, to mark a regular Org
+heading that of a blog post, you'd write:
+
+#+BEGIN_src org
+​* My blog post :blog_post:
+#+END_src
+
+*** Properties
+The majority of a blog post's metadata is set in its Org entry's
+property drawer. Here's a list of all possible properties:
+
+- =nominal_id= :: (string) *Required.* A unique ID for the post.
+  
+- =author= :: (string) *Required.* The Nominal ID of the author of
+  this post.
+
+- =subtitle= :: (string) *Required.* A short subtitle for the blog
+  post (i.e. to be displayed under the title).
+
+- =date_published= :: (Org timestamp) *Required.* The date and time at
+  which this post was made.
+
+- =date_modified= :: (Org timestamp) The date and time at which this
+  post was last modified.
+
+- =stub= :: (string) An unique string meant to identify this post in
+  URLs. If this property isn't present, the =update-site= script will
+  try to create one.
+
+  (For example, a stub value of =year-in-review= could mean that the
+  URL to your post ends up being
+  =https://example.com/posts/year-in-review=.)
+
+*** Post title
+The title of a blog post is the same as the title of the heading.
+
+** The =update-site= script
+After setting up the repository, you can use the =update-site= script
+to finally create/update all the generated components.
+
+It takes two commit IDs or refs as its arguments. It reads what has
+changed from the first commit to the second commit, and
+updates/creates the generated files based on those changes.
+
+As one might expect, the script can also be used to revert the blog to
+a previous state. To do so, simply provide the newer commit as the
+first argument, and the older commit as the second argument.
+
+*** As a Git hook
+=update-site= was made to be run by the =update= hook, but it can be
+integrated into any Git hook that takes two Git commit IDs or refs as
+arguments.
+
+The most basic way to implement it as an =update= hook would look
+something like this:
+
+#+BEGIN_src sh
+  #!/bin/sh
+
+  ./hooks/update-site $2 $3 || exit 1
+#+END_src
+
+To only run =update-site= when a particular branch is updated, you can
+do something like this:
+
+#+BEGIN_src sh
+  #!/bin/sh
+
+  # Check the branch that's being updated. We only want to run the
+  # script if the "publish" branch is being updated.
+  if [ $1 == "refs/heads/publish" ];
+  then
+      ./hooks/update-site $2 $3 || exit 1
+  fi
+#+END_src
