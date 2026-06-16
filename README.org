@@ -1,0 +1,83 @@
+#+TITLE: GEO Blogging Tool
+
+The GEO (Git-Emacs-Org) blogging tool is a script, written in Elisp,
+that generates and maintains a blog's backend files via Org Mode and
+Git. It seamlessly converts Org files into blog posts, and maintains
+post metadata in an SQLite database.
+
+** Features
+*** ✏️ Based on Org Mode
+Writing GEO blog posts will be familiar experience for those who
+already use Org Mode, as it implements many of its features through
+Org Mode's /existing/ features. It uses properties to store blog post
+metadata, tags to mark posts to be published, and Org's export feature
+to convert files to HTML.
+
+*** 📚 One source file can create multiple blog files
+Because GEO treats every marked Org headline as its own blog post,
+you can spread your blog posts across as many or few files as you'd
+like. You can put all of your posts into a single file, put each post
+in its own file, or use both methods. The result will be the same:
+separate =.html= files for each blog post.
+
+*** 🪝 Git hook-ready
+In addition to Org Mode, GEO is built with Git in mind. The
+GEO's =update-site= script is made to be easily integrated into a
+Git repository's =update= hook. If you choose to do that, GEO will
+be able to automatically update the database and .html files when
+commits are is pushed to your upstream repository.
+
+** Generated files
+Based on the files you edit, GEO (via its =update-site= script)
+generates a number of files.
+
+- HTML files :: HTML files, each one generated from a corresponding
+  Org entry. These files aren't full webpages. (They don't contain
+  =<html>= elements.) They're meant to be embedded into a full HTML
+  page, using something like PHP.
+
+- Database :: A SQLite3 database that stores the metadata of all the
+  posts, authors, avatars, and the hashes of generated HTML files.
+
+*** GEO is not a site generator
+GEO doesn't generate full webpages for posts, or a homepage that
+contains an index of the posts. It simply manages the database and
+post files.
+
+** Avatars and image sets
+Like many platforms for written media, GEO's database stores
+avatars -- images that are associated with an author. These images can
+then be displayed next to that author's name in their articles, for
+example.
+
+GEO, however, allows each author to have /multiple/ avatars. Each
+avatars is tied to a timestamp. For example, one author can have an
+avatar that's a picture of themselves taken on May 1, 2020, as well as
+one taken on June 1, 2023.
+
+It's designed this way so that, on a blog website, different images
+can signify different time periods. Taking the previous example, the
+blog can be designed such that in articles written on or after June 1,
+2023, the author's 2023 picture will be displayed; and in articles
+written /before/ June 1 2023, the 2020 picture will be displayed.
+
+For example, a blogger who lives in New York City, and write a lot
+about NYC, might move to Los Angeles and begin to reorient their blog
+to be about life in Los Angeles. With GEO, they can have a picture of
+themselves in Times Square shown in all posts posted during their time
+in NYC, and a picture of themselves in front of the Hollywood Sign,
+shown next to all of their LA-based posts.
+
+*** Image sets, for responsive design
+While an *avatar* is based on a single *image*, it technically has
+multiple images, which make up an *image set*. Each file is supposed
+to be a resized/cropped version of the original image, and is
+associated with a screen size (or breakpoint).
+
+This is for responsive design purposes: that way, you can deliver a
+256x256 version of an avatar to larger screens, and a 64x64 version to
+smaller screens.
+
+NOTE: In theory, every image in an image set is the same image
+scaled/cropped differently, but in practice, the images can be
+completely different.
