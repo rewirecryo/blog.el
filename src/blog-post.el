@@ -169,7 +169,8 @@ exists.
 
 If the file is successfully written, the content of the HTML file will
 be returned."
-  (with-temp-buffer (insert (blog-post-content post))
+  (with-temp-buffer (org-mode)
+		    (insert (blog-post-content post))
 		    (let ((post-html (org-export-as 'html nil nil t)))
 		      (if (not (and (file-exists-p output-file)
 				    (not overwrite)))
