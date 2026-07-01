@@ -107,10 +107,9 @@ relative to BLOG-ROOT."
 								    (org-element-property :end (org-element-at-point)))))
 		 :content (save-excursion (let ((begin nil) (end nil))
 					    (org-back-to-heading)
+					    (setq end (org-element-end (org-element-at-point)))
 					    (org-end-of-meta-data t)
 					    (setq begin (point))
-					    (org-end-of-subtree)
-					    (setq end (point))
 					    (buffer-substring-no-properties begin end)))))
 
 (defun blog-read-posts-from-buffer (buffer authors-list &optional as-alist existing-posts src-file-path)
