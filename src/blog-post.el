@@ -107,7 +107,7 @@ relative to BLOG-ROOT."
 								    (org-element-property :end (org-element-at-point)))))
 		 :content (save-excursion (let ((begin nil) (end nil))
 					    (org-back-to-heading)
-					    (setq end (org-element-end (org-element-at-point)))
+					    (setq end (org-element-property :end (org-element-at-point)))
 					    (org-end-of-meta-data t)
 					    (setq begin (point))
 					    (buffer-substring-no-properties begin end)))))
