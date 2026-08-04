@@ -6,7 +6,7 @@ Git. It seamlessly converts Org files into blog posts, and maintains
 post metadata in an SQLite database.
 
 ** Features
-*** ✏️ Based on Org Mode
+*** 🦄️ Based on Org Mode
 Writing GEO blog posts will be familiar experience for those who
 already use Org Mode, as it implements many of its features through
 Org Mode's /existing/ features. It uses properties to store blog post
