@@ -1,5 +1,7 @@
 #+TITLE: GEO Blogging Tool
 
+[[file:logo.png]]
+
 The GEO (Git-Emacs-Org) blogging tool is a script, written in Elisp,
 that generates and maintains a blog's backend files via Org Mode and
 Git. It seamlessly converts Org files into blog posts, and maintains
